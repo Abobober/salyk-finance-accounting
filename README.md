@@ -34,8 +34,8 @@ Backend-система финансового учета для индивиду
 - `git pull`
 - `git checkout -b feature/name_of_feature`
 
-- -`git add .`
-- -`git commit -m "my_feature"`
+- `git add .`
+- `git commit -m "my_feature"`
 - `git push origin feature/name_of_feature`
 
 
