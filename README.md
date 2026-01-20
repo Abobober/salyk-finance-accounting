@@ -30,13 +30,13 @@ Backend-система финансового учета для индивиду
 - `develop` - ветка активной разработки
 
 ### Разработка в develop
-git checkout develop
-git pull
-git checkout -b feature/name_of_feature
+`git checkout develop`
+`git pull`
+`git checkout -b feature/name_of_feature`
 
-git add .
-git commit -m "my_feature"
-git push origin feature/name_of_feature
+`git add .`
+`git commit -m "my_feature"`
+`git push origin feature/name_of_feature`
 
 
 
