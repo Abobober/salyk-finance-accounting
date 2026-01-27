@@ -16,7 +16,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password', 'password2', 'first_name', 'last_name')
+        fields = ('email', 'password', 'password2', 'first_name', 'last_name')
         # Можно указать дополнительные настройки для полей, если нужно
     
     def validate(self, attrs):
@@ -39,5 +39,5 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'telegram_id', 'date_joined')
+        fields = ('id', 'email', 'first_name', 'last_name', 'telegram_id', 'date_joined')
         read_only_fields = ('id', 'date_joined')  # Эти поля нельзя изменять через API
