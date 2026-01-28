@@ -28,4 +28,6 @@ urlpatterns = [
 
     # URL-ы из приложения users
     path('api/users/', include('users.urls')),
+    path('api/finance/', include('finance.urls')),
+
 ]
