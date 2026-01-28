@@ -31,7 +31,7 @@ Backend-система финансового учета для индивиду
 
 ### Разработка в develop
 - `git checkout develop`
-- `git pull`
+- `git pull origin develop`
 - `git checkout -b feature/name_of_feature`
 
 - `git add .`
