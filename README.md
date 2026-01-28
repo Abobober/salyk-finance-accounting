@@ -1,5 +1,5 @@
 ## Описание
-Веб приложение для финансового учета для индивидуальных предпринимателей,
+Backend-система финансового учета для индивидуальных предпринимателей,
 сдающих отчетность в Salyk.kg.
 
 ## Технологии
@@ -29,14 +29,20 @@
 - `main` - стабильная версия
 - `develop` - ветка активной разработки
 
-### Разработка в develop
-- `git checkout develop`
-- `git pull`
-- `git checkout -b feature/name_of_feature`
+### Разработка
 
+- Выбрать ветку разработки `git checkout develop`
+- Првоерить на наличие обновлений `git pull origin develop`
+- Переключиться на свою рабочую ветку `git checkout -b feature/name_of_feature`
 - `git add .`
 - `git commit -m "my_feature"`
-- `git push origin feature/name_of_feature`
+- Когда готово, слить ветку в develop `git checkout develop`
+- `git pull origin develop`
+- `git merge feature/name_of_feature`
+- Решить возможные конфликты
+- `git add <file-with-conflicts>`
+- `git commit -m "Resolved merge conflicts"`
+- Запушить `git push origin main`
 
 
 
