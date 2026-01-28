@@ -2,10 +2,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
-from django.db import models
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .models import Transaction, Category
 from .serializers import (
@@ -15,11 +16,14 @@ from .serializers import (
 )
 
 
-
 class CategoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint для управления категориями.
-    Позволяет создавать, просматривать, обновлять и удалять категории.
+    
+    Позволяет:
+    - Создавать пользовательские категории
+    - Просматривать все категории (системные + пользовательские)
+    - Обновлять и удалять только свои категории
     """
     
     serializer_class = CategorySerializer
@@ -33,7 +37,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         
         # Берем категории пользователя и системные категории
         return Category.objects.filter(
-            models.Q(user=user) | models.Q(is_system=True)
+            Q(user=user) | Q(is_system=True)
         ).distinct()
     
     def perform_create(self, serializer):
@@ -46,7 +50,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class TransactionViewSet(viewsets.ModelViewSet):
     """
     API endpoint для управления финансовыми операциями (доходами/расходами).
-    Реализует полный CRUD.
+    
+    Реализует полный CRUD для финансовых операций:
+    - Создание, чтение, обновление, удаление транзакций
+    - Фильтрация по типу, дате, категории
+    - Получение аналитических сводок
     """
     
     serializer_class = TransactionSerializer
@@ -55,7 +63,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Возвращает только транзакции текущего пользователя.
-        Можно фильтровать по типу, дате, категории.
+        
+        Параметры запроса:
+        - type: 'income' или 'expense' (фильтр по типу операции)
+        - category_id: ID категории для фильтрации
+        - date_from: начальная дата (формат: YYYY-MM-DD)
+        - date_to: конечная дата (формат: YYYY-MM-DD)
         """
         queryset = Transaction.objects.filter(user=self.request.user)
         
@@ -88,14 +101,51 @@ class TransactionViewSet(viewsets.ModelViewSet):
         """
         serializer.save(user=self.request.user)
     
+    @swagger_auto_schema(
+        method='get',
+        manual_parameters=[
+            openapi.Parameter(
+                'period',
+                openapi.IN_QUERY,
+                description="Период для сводки",
+                type=openapi.TYPE_STRING,
+                enum=['day', 'week', 'month', 'year'],
+                default='month'
+            ),
+            openapi.Parameter(
+                'date_from',
+                openapi.IN_QUERY,
+                description="Начальная дата (YYYY-MM-DD). Если указана, period игнорируется",
+                type=openapi.TYPE_STRING,
+                format='date'
+            ),
+            openapi.Parameter(
+                'date_to',
+                openapi.IN_QUERY,
+                description="Конечная дата (YYYY-MM-DD). Если указана, period игнорируется",
+                type=openapi.TYPE_STRING,
+                format='date'
+            ),
+        ],
+        responses={
+            200: TransactionSummarySerializer,
+            400: "Некорректные параметры запроса"
+        }
+    )
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """
         Возвращает сводку по транзакциям за период.
         
-        Параметры:
-        - period: 'day', 'week', 'month', 'year' (по умолчанию 'month')
-        - date_from, date_to: конкретные даты
+        Примеры использования:
+        - /api/finance/transactions/summary/?period=month
+        - /api/finance/transactions/summary/?date_from=2024-01-01&date_to=2024-01-31
+        
+        Возвращает:
+        - total_income: общая сумма доходов
+        - total_expense: общая сумма расходов
+        - net_profit: чистая прибыль (доходы - расходы)
+        - transaction_count: количество операций
         """
         queryset = self.get_queryset()
         
@@ -162,7 +212,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def by_category(self, request):
         """
         Возвращает транзакции сгруппированные по категориям.
-        Полезно для построения графиков.
+        
+        Полезно для построения графиков распределения расходов/доходов.
+        
+        Возвращает массив объектов:
+        - category__id: ID категории
+        - category__name: название категории
+        - transaction_type: тип операции
+        - total_amount: общая сумма по категории
+        - transaction_count: количество операций в категории
         """
         queryset = self.get_queryset()
         

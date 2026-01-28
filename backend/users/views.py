@@ -9,46 +9,6 @@ from rest_framework.parsers import JSONParser
 from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView as _TokenObtainPairView,
-    TokenRefreshView as _TokenRefreshView,
-)
-
-
-class TokenObtainPairView(_TokenObtainPairView):
-    """
-    Obtain access and refresh tokens by credentials.
-
-    Expected JSON (POST):
-    {
-        "email": "user@example.com",
-        "password": "your_password"
-    }
-
-    Successful response (200):
-    {
-        "refresh": "<refresh_token>",
-        "access": "<access_token>"
-    }
-    """
-    pass
-
-
-class TokenRefreshView(_TokenRefreshView):
-    """
-    Refresh an access token using a refresh token.
-
-    Expected JSON (POST):
-    {"refresh": "<refresh_token>"}
-
-    Successful response (200):
-    {
-        "access": "<new_access_token>",
-        # when ROTATE_REFRESH_TOKENS=True a new refresh may be returned
-        "refresh": "<new_refresh_token>"
-    }
-    """
-    pass
 
 
 class UserRegistrationView(generics.CreateAPIView):
