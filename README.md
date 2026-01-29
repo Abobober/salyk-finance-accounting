@@ -42,7 +42,7 @@ Backend-система финансового учета для индивиду
 - Решить возможные конфликты
 - `git add <file-with-conflicts>`
 - `git commit -m "Resolved merge conflicts"`
-- Запушить `git push origin main`
+- Запушить `git push origin develop`
 
 
 
