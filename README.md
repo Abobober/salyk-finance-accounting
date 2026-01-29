@@ -21,7 +21,7 @@ Backend-система финансового учета для индивиду
 2. `python -m venv venv`
 3. `venv\Scripts\activate`
 4. `pip install -r requirements.txt`
-5. Создать файл `.env` по примеру `.env.example`
+5. Создать файл `.env` по примеру `env_example`
 6. `python manage.py migrate`
 7. `python manage.py runserver`
 
