@@ -1,4 +1,6 @@
-from rest_framework import viewsets, status
+from typing import Any
+
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +9,10 @@ from django.utils import timezone
 from datetime import timedelta
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
+
+
 
 from .models import Transaction, Category
 from .serializers import (
@@ -28,23 +34,30 @@ class CategoryViewSet(viewsets.ModelViewSet):
     
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        """
-        Возвращает только категории текущего пользователя + системные категории.
-        """
         user = self.request.user
-        
-        # Берем категории пользователя и системные категории
-        return Category.objects.filter(
-            Q(user=user) | Q(is_system=True)
-        ).distinct()
-    
+        return Category.objects.filter(Q(user=user) | Q(is_system=True)).distinct()
+
     def perform_create(self, serializer):
-        """
-        При создании категории автоматически привязываем ее к текущему пользователю.
-        """
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        obj = self.get_object()
+        # Не позволяем менять системные категории
+        if obj.is_system and obj.user is None:
+            raise PermissionDenied("Системные категории менять нельзя.")
+        # Также не позволяем менять чужую категорию
+        if obj.user and obj.user != self.request.user:
+            raise PermissionDenied("Нельзя менять чужую категорию.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.is_system and instance.user is None:
+            raise PermissionDenied("Системные категории удалять нельзя.")
+        if instance.user and instance.user != self.request.user:
+            raise PermissionDenied("Нельзя удалять чужую категорию.")
+        instance.delete()
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -59,6 +72,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
     
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [OrderingFilter]
+
+    ordering_fields = [
+        'transaction_date',
+        'amount',
+        'created_at'
+    ]
+
+    ordering = ['-transaction_date']
     
     def get_queryset(self):
         """

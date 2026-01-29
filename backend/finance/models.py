@@ -1,6 +1,10 @@
+from typing import Any
+
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+
 
 
 class Category(models.Model):
@@ -132,13 +136,16 @@ class Transaction(models.Model):
         verbose_name_plural = 'Транзакции'
         ordering = ['-transaction_date', '-created_at']
     
+    def clean(self):
+        # Проверка: категория соответствует типу операции
+        if self.category and self.category.category_type != self.transaction_type:
+            raise ValidationError({
+                'category': f"Категория '{self.category.name}' имеет тип '{self.category.category_type}', а операция имеет тип '{self.transaction_type}'"
+            })
+    
     def save(self, *args, **kwargs):
         """
         При сохранении проверяем, что категория соответствует типу операции.
         """
-        if self.category and self.category.category_type != self.transaction_type:
-            raise ValueError(
-                f"Категория '{self.category.name}' имеет тип '{self.category.category_type}', "
-                f"а операция имеет тип '{self.transaction_type}'"
-            )
+        self.full_clean()
         super().save(*args, **kwargs)
