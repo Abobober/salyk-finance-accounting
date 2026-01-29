@@ -1,0 +1,8 @@
+# Скопировать в .env и заполнить
+SECRET_KEY=YZkiuZOga08bt50YBzdmcItLsRiFBp0U4ZIYb6oh-ZlerP1VYy8kJpv-ca68ZkdNIYY
+DEBUG=True
+DB_NAME=finance_db
+DB_USER=postgres
+DB_PASSWORD=postgre # например, mysecretpassword
+DB_HOST=localhost
+DB_PORT=5432
