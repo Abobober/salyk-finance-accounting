@@ -1,0 +1,8 @@
+# Скопировать в .env и заполнить
+SECRET_KEY= # например, через `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+DEBUG=True
+DB_NAME=finance_accounting_db
+DB_USER=postgres
+DB_PASSWORD= # пароль от posgres
+DB_HOST=localhost
+DB_PORT=5432
