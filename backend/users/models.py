@@ -2,7 +2,6 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-
 class CustomUserManager(BaseUserManager):
     """Менеджер пользователей, использующий email как логин."""
 
@@ -56,7 +55,7 @@ class CustomUser(AbstractUser):
 
     objects = CustomUserManager()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.email}"
 
     class Meta:

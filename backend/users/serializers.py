@@ -1,6 +1,9 @@
+from typing import Any, Dict
+
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import CustomUser
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """
@@ -27,8 +30,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Создаем нового пользователя."""
-        validated_data.pop('password2') # Убираем password2, т.к. его нет в модели
-        
+        validated_data.pop('password2')  # Убираем password2, т.к. его нет в модели
+
         # Создаем пользователя с хэшированным паролем
         user = CustomUser.objects.create_user(**validated_data)
         return user
