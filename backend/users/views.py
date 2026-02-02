@@ -13,8 +13,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 class UserRegistrationView(generics.CreateAPIView):
     """
-    Представление для регистрации нового пользователя.
-    Доступно без аутентификации.
+    User registration endpoint
+
+    Path: POST /api/users/register/
+    - Auth: not required
+    - Body (JSON): {"email": "user@example.com", "password": "string", "first_name": "opt", "last_name": "opt"}
+    - Response: 201 Created with message: {"message": "Пользователь успешно зарегистрирован. Теперь вы можете войти."}
+    - Frontend should redirect to login on success.
     """
     queryset = CustomUser.objects.all()
     serializer_class = UserRegistrationSerializer
@@ -34,8 +39,15 @@ class UserRegistrationView(generics.CreateAPIView):
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     """
-    Представление для просмотра и обновления профиля пользователя.
-    Доступно только авторизованным пользователям.
+    User profile endpoint
+
+    Path: /api/users/profile/
+    - Methods: GET, PUT, PATCH
+    - Auth: required
+    - GET response: current user profile object (fields depend on serializer)
+    - PUT/PATCH body: partial or full user object to update (e.g. first_name, last_name, email)
+    - Response: 200 OK with updated profile
+    - Frontend: use this for profile page and profile edits.
     """
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -46,8 +58,12 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
 class CurrentUserView(APIView):
     """
-    Простое представление для получения информации о текущем пользователе.
-    Полезно для фронтенда, чтобы проверить, авторизован ли пользователь.
+    Current user check endpoint
+
+    Path: GET /api/users/me/
+    - Auth: required
+    - Returns: current authenticated user serialized (use to confirm login and load quick profile info)
+    - Response: 200 OK with user object
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -59,8 +75,14 @@ class CurrentUserView(APIView):
 
 class LogoutView(APIView):
     """
-    Blacklist the provided refresh token to log the user out.
-    Expected JSON (POST): {"refresh": "<refresh_token>"}
+    Logout endpoint
+
+    Path: POST /api/users/logout/
+    - Auth: required
+    - Body (JSON): {"refresh": "<refresh_token>"}
+    - Response: 204 No Content on success
+    - Errors: 400 if token is missing/invalid; 403 if token belongs to another user
+    - Frontend flow: when logging out, discard local tokens and call this endpoint with the refresh token to blacklist it server-side.
     """
     permission_classes = [IsAuthenticated]
 

@@ -47,11 +47,15 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 
     # JWT эндпоинты для получения и обновления токенов
+    # - POST /api/token/        -> obtain access & refresh tokens
+    #     Body: {"email": "...", "password": "..."} (or username/password depending on serializer)
+    #     Response: {"access": "<jwt>", "refresh": "<jwt>"}
+    # - POST /api/token/refresh/-> refresh access token
+    #     Body: {"refresh": "<refresh_token>"}
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # URL-ы из приложения users
     path('api/users/', include('users.urls')),
     path('api/finance/', include('finance.urls')),
-
 ]

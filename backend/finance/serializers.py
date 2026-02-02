@@ -63,10 +63,17 @@ class TransactionSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         # Ограничиваем queryset для category_id — только системные или принадлежащие текущему пользователю
         request = self.context.get('request')
+
+        #swagger generation
+        if getattr(self, 'swagger_fake_view', False):
+            self.fields['category_id'].queryset = Category.objects.filter(is_system=True)
+            return
+        
         if request and request.user.is_authenticated:
             self.fields['category_id'].queryset = Category.objects.filter(
                 Q(user=request.user) | Q(is_system=True)
             )
+        
 
     def validate_amount(self, value):
         if value is None or value <= Decimal('0.00'):
@@ -98,8 +105,11 @@ class TransactionSummarySerializer(serializers.Serializer):
     Сериализатор для сводки по транзакциям.
     Используется для отображения итогов.
     """
-    total_income = serializers.DecimalField(max_digits=12, decimal_places=2)
-    total_expense = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_income = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
+    total_expense = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
     net_profit = serializers.DecimalField(max_digits=12, decimal_places=2)
     transaction_count = serializers.IntegerField()
-    period = serializers.DictField(child=serializers.DateField(), read_only=True)
+    period = serializers.SerializerMethodField()
+
+    def get_period(self, obj):
+        return obj.get('period')

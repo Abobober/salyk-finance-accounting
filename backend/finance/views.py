@@ -1,5 +1,4 @@
 from typing import Any
-
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -20,22 +19,37 @@ from .serializers import (
     CategorySerializer,
     TransactionSummarySerializer
 )
+from .swagger_schemas import (
+    BY_CATEGORY_RESP,
+    CATEGORY_LIST_RESP,
+    CATEGORY_DETAIL_RESP,
+    CATEGORY_CREATE_REQ,
+    CATEGORY_CREATE_RESP,
+    CATEGORY_UPDATE_RESP,
+    CATEGORY_DELETE_RESP,
+    TRANSACTION_LIST_PARAMS,
+    TRANSACTION_LIST_RESP,
+    TRANSACTION_DETAIL_RESP,
+    TRANSACTION_CREATE_REQ,
+    TRANSACTION_CREATE_RESP,
+    TRANSACTION_UPDATE_RESP,
+    TRANSACTION_DELETE_RESP,
+    SUMMARY_PARAMS,
+    SUMMARY_RESP,
+)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
     """
-    API endpoint для управления категориями.
-    
-    Позволяет:
-    - Создавать пользовательские категории
-    - Просматривать все категории (системные + пользовательские)
-    - Обновлять и удалять только свои категории
+    API endpoint for categories CRUD.
     """
     
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Category.objects.none()
         user = self.request.user
         return Category.objects.filter(Q(user=user) | Q(is_system=True)).distinct()
 
@@ -59,15 +73,42 @@ class CategoryViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Нельзя удалять чужую категорию.")
         instance.delete()
 
+    @swagger_auto_schema(operation_description="List categories", responses=CATEGORY_LIST_RESP)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Retrieve a category", responses=CATEGORY_DETAIL_RESP)
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Create a category", request_body=CATEGORY_CREATE_REQ, responses=CATEGORY_CREATE_RESP)
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Update a category", request_body=CATEGORY_CREATE_REQ, responses=CATEGORY_UPDATE_RESP)
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Partially update a category", request_body=CATEGORY_CREATE_REQ, responses=CATEGORY_UPDATE_RESP)
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Delete a category", responses=CATEGORY_DELETE_RESP)
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
 
 class TransactionViewSet(viewsets.ModelViewSet):
     """
     API endpoint для управления финансовыми операциями (доходами/расходами).
     
-    Реализует полный CRUD для финансовых операций:
-    - Создание, чтение, обновление, удаление транзакций
-    - Фильтрация по типу, дате, категории
-    - Получение аналитических сводок
+    Permissions: IsAuthenticated
+    
+
+    Features:
+    - CRUD операций (доход/расход)
+    - Фильтрация по типу, категории и дате
+    - Получение сводки и группировка по категориям
     """
     
     serializer_class = TransactionSerializer
@@ -86,13 +127,23 @@ class TransactionViewSet(viewsets.ModelViewSet):
         """
         Возвращает только транзакции текущего пользователя.
         
-        Параметры запроса:
-        - type: 'income' или 'expense' (фильтр по типу операции)
-        - category_id: ID категории для фильтрации
-        - date_from: начальная дата (формат: YYYY-MM-DD)
-        - date_to: конечная дата (формат: YYYY-MM-DD)
+        Query parameters:
+        - type: 'income' или 'expense' (необязательно)
+        - category_id: ID категории (необязательно)
+        - date_from: начало периода YYYY-MM-DD (необязательно)
+        - date_to: конец периода YYYY-MM-DD (необязательно)
         """
-        queryset = Transaction.objects.filter(user=self.request.user)
+
+        # Short-circuit for drf_yasg schema generation
+        if getattr(self, 'swagger_fake_view', False):
+            return Transaction.objects.none()
+
+        user = self.request.user
+        if not user.is_authenticated:
+            # Safety check, although permission_classes=IsAuthenticated should prevent this
+            return Transaction.objects.none()
+
+        queryset = Transaction.objects.filter(user=user)
         
         # Фильтрация по типу операции (income/expense)
         transaction_type = self.request.query_params.get('type')
@@ -122,43 +173,42 @@ class TransactionViewSet(viewsets.ModelViewSet):
         При создании транзакции автоматически привязываем ее к текущему пользователю.
         """
         serializer.save(user=self.request.user)
+
+    @swagger_auto_schema(operation_description="List transactions", manual_parameters=TRANSACTION_LIST_PARAMS, responses=TRANSACTION_LIST_RESP)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Retrieve a transaction", responses=TRANSACTION_DETAIL_RESP)
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Create a transaction", request_body=TRANSACTION_CREATE_REQ, responses=TRANSACTION_CREATE_RESP)
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Update a transaction", request_body=TRANSACTION_CREATE_REQ, responses=TRANSACTION_UPDATE_RESP)
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Partially update a transaction", request_body=TRANSACTION_CREATE_REQ, responses=TRANSACTION_UPDATE_RESP)
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Delete a transaction", responses=TRANSACTION_DELETE_RESP)
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
     
-    @swagger_auto_schema(
-        method='get',
-        manual_parameters=[
-            openapi.Parameter(
-                'period',
-                openapi.IN_QUERY,
-                description="Период для сводки",
-                type=openapi.TYPE_STRING,
-                enum=['day', 'week', 'month', 'year'],
-                default='month'
-            ),
-            openapi.Parameter(
-                'date_from',
-                openapi.IN_QUERY,
-                description="Начальная дата (YYYY-MM-DD). Если указана, period игнорируется",
-                type=openapi.TYPE_STRING,
-                format='date'
-            ),
-            openapi.Parameter(
-                'date_to',
-                openapi.IN_QUERY,
-                description="Конечная дата (YYYY-MM-DD). Если указана, period игнорируется",
-                type=openapi.TYPE_STRING,
-                format='date'
-            ),
-        ],
-        responses={
-            200: TransactionSummarySerializer,
-            400: "Некорректные параметры запроса"
-        }
-    )
+    @swagger_auto_schema(method='get', manual_parameters=SUMMARY_PARAMS, responses=SUMMARY_RESP)
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """
         Возвращает сводку по транзакциям за период.
         
+        Query parameters:
+        - period: 'day', 'week', 'month', 'year' (default='month')
+        - date_from: YYYY-MM-DD (overrides period if provided)
+        - date_to: YYYY-MM-DD (overrides period if provided)
+
         Примеры использования:
         - /api/finance/transactions/summary/?period=month
         - /api/finance/transactions/summary/?date_from=2024-01-01&date_to=2024-01-31
@@ -168,6 +218,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         - total_expense: общая сумма расходов
         - net_profit: чистая прибыль (доходы - расходы)
         - transaction_count: количество операций
+        - period {date_from, date_to}
         """
         queryset = self.get_queryset()
         
@@ -230,20 +281,27 @@ class TransactionViewSet(viewsets.ModelViewSet):
         serializer = TransactionSummarySerializer(summary)
         return Response(serializer.data)
     
+    @swagger_auto_schema(responses=BY_CATEGORY_RESP)
     @action(detail=False, methods=['get'])
     def by_category(self, request):
         """
         Возвращает транзакции сгруппированные по категориям.
-        
-        Полезно для построения графиков распределения расходов/доходов.
-        
-        Возвращает массив объектов:
-        - category__id: ID категории
-        - category__name: название категории
-        - transaction_type: тип операции
-        - total_amount: общая сумма по категории
-        - transaction_count: количество операций в категории
+
+        Query parameters:
+        - type: 'income'|'expense' (optional)
+        - date_from: YYYY-MM-DD (optional)
+        - date_to: YYYY-MM-DD (optional)
+
+        Request example:
+        - GET /api/finance/transactions/by_category/?date_from=2026-01-01&date_to=2026-01-31&type=expense
+
+        Response example:
+        [
+            {"category__id": 5, "category__name": "Food", "transaction_type": "expense", "total_amount": "250.00", "transaction_count": 10},
+            {"category__id": null, "category__name": null, "transaction_type": "income", "total_amount": "100.00", "transaction_count": 1}
+        ]
         """
+        
         queryset = self.get_queryset()
         
         # Группируем по категориям
@@ -255,5 +313,5 @@ class TransactionViewSet(viewsets.ModelViewSet):
             total_amount=Sum('amount'),
             transaction_count=Count('id')
         ).order_by('-total_amount')
-        
+    
         return Response(category_data)
