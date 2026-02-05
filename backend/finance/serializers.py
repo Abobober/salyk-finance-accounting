@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from .models import Category, Transaction
+from django.db.models import Q
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    category_type = serializers.CharField(source='type')  # rename it here
+    category_type_display = serializers.CharField(source='get_category_type_display', read_only=True)
 
     class Meta:
         model = Category
@@ -11,6 +13,7 @@ class CategorySerializer(serializers.ModelSerializer):
             'id',
             'name',
             'category_type',
+            'category_type_display',
             'is_system',
             'created_at',
         )
@@ -18,10 +21,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(
-        source='category.name',
-        read_only=True
-    )
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
         model = Transaction
@@ -36,3 +36,30 @@ class TransactionSerializer(serializers.ModelSerializer):
             'created_at',
         )
         read_only_fields = ('id', 'created_at')
+        
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'request' in self.context:
+            user = self.context['request'].user
+            # Пользователь может выбирать только свои или системные категории
+            self.fields['category'].queryset = Category.objects.filter(
+                Q(user=user) | Q(is_system=True)
+            )
+    
+    def validate(self, attrs):
+        
+        category = attrs.get('category')
+        t_type = attrs.get('transaction_type')
+
+        if not t_type and self.instance:
+            t_type = self.instance.transaction_type
+        if not category and self.instance:
+            category = self.instance.category
+
+        if category and t_type and category.category_type != t_type:
+            raise serializers.ValidationError({
+                'category': f"Тип категории ({category.get_category_type_display()}) не совпадает с типом операции ({t_type})"
+            })
+        
+        return attrs

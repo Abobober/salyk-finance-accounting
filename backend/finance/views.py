@@ -109,8 +109,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['transaction_date', 'amount', 'created_at']
 
     def get_queryset(self):
-        return Transaction.objects.filter(user=self.request.user)
-
+        return Transaction.objects.filter(user=self.request.user).select_related('category')
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
