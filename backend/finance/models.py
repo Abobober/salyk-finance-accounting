@@ -9,8 +9,8 @@ class Category(models.Model):
     """Категории для доходов и расходов."""
 
     class CategoryType(models.TextChoices):
-        INCOME = 'income', 'Доход'
-        EXPENSE = 'expense', 'Расход'
+        INCOME = 'income', 'Доход (категория)'
+        EXPENSE = 'expense', 'Расход (категория)'
 
     name = models.CharField(max_length=100, verbose_name='Название категории')
     category_type = models.CharField(max_length=10, choices=CategoryType.choices, verbose_name='Тип категории')
@@ -39,8 +39,8 @@ class Transaction(models.Model):
     """Финансовая операция (доход или расход)."""
 
     class TransactionType(models.TextChoices):
-        INCOME = 'income', 'Доход'
-        EXPENSE = 'expense', 'Расход'
+        INCOME = 'income', 'Доход (транзакция)'
+        EXPENSE = 'expense', 'Расход (транзакция)'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

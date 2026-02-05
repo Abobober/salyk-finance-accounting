@@ -40,12 +40,14 @@ class TransactionSerializer(serializers.ModelSerializer):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'request' in self.context:
-            user = self.context['request'].user
-            # Пользователь может выбирать только свои или системные категории
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            user = request.user
             self.fields['category'].queryset = Category.objects.filter(
                 Q(user=user) | Q(is_system=True)
             )
+        else:
+            self.fields['category'].queryset = Category.objects.filter(is_system=True)
     
     def validate(self, attrs):
         

@@ -9,6 +9,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -21,6 +22,10 @@ class UserRegistrationView(generics.CreateAPIView):
     - Response: 201 Created with message: {"message": "Пользователь успешно зарегистрирован. Теперь вы можете войти."}
     - Frontend should redirect to login on success.
     """
+    @extend_schema(responses={201: UserProfileSerializer})
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
     queryset = CustomUser.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]  # Разрешаем доступ всем
@@ -65,7 +70,14 @@ class CurrentUserView(APIView):
     - Returns: current authenticated user serialized (use to confirm login and load quick profile info)
     - Response: 200 OK with user object
     """
+
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    @extend_schema(
+        summary="Данные текущего юзера",
+        responses={200: UserProfileSerializer}
+    )
     
     def get(self, request):
         """Возвращает информацию о текущем пользователе."""
@@ -85,6 +97,16 @@ class LogoutView(APIView):
     - Frontend flow: when logging out, discard local tokens and call this endpoint with the refresh token to blacklist it server-side.
     """
     permission_classes = [IsAuthenticated]
+    @extend_schema(
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {"refresh": {"type": "string"}},
+                "required": ["refresh"]
+            }
+        },
+        responses={204: None}
+    )
 
     @parser_classes([JSONParser])
     def post(self, request):
