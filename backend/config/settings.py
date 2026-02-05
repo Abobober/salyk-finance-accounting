@@ -46,9 +46,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
-    'drf_yasg',
     'django_filters',
-    'pytest_django',
+    'drf_spectacular',
 
     'users',
     'finance',
@@ -56,6 +55,7 @@ INSTALLED_APPS = [
 
 # Настройка REST Framework
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT для аутентификации API
     ),
@@ -80,6 +80,11 @@ REST_FRAMEWORK = {
     },
 }
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Salyk Finance API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
 
 # Настройки JWT токенов
 SIMPLE_JWT = {
