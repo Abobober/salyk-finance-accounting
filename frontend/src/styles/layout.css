@@ -1,0 +1,101 @@
+/* Основной макет приложения */
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+}
+
+.layout-header {
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+}
+
+.layout-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.layout-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.layout-user {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.layout-user-email {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.layout-logout {
+  padding: 8px 16px;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.layout-logout:hover {
+  background: var(--color-bg);
+}
+
+.layout-main {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  width: 100%;
+}
+
+.main-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 8px 0;
+}
+
+.main-subtitle {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 32px 0;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.main-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  padding: 20px 24px;
+}
+
+.main-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 8px 0;
+}
+
+.main-card-desc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
