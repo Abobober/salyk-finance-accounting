@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 
+from users.models import ActivityCode
+
 
 class Category(models.Model):
     """Категории для доходов и расходов."""
@@ -36,17 +38,47 @@ class Category(models.Model):
 
 
 class Transaction(models.Model):
-    """Финансовая операция (доход или расход)."""
+    """Финансовая операция с учетом бизнес-логики и налогов КР."""
 
     class TransactionType(models.TextChoices):
-        INCOME = 'income', 'Доход (транзакция)'
-        EXPENSE = 'expense', 'Расход (транзакция)'
+        INCOME = 'income', 'Доход'
+        EXPENSE = 'expense', 'Расход'
+
+    class PaymentMethod(models.TextChoices):
+        CASH = 'cash', 'Наличный расчет'
+        NON_CASH = 'non_cash', 'Безналичный расчет'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='transactions',
         verbose_name='Пользователь'
+    )
+
+    # Связь с видом деятельности из онбординга
+    activity_code = models.ForeignKey(
+        ActivityCode, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Вид деятельности"
+    )
+    
+    is_business = models.BooleanField(
+        default=True, 
+        verbose_name="Относится к бизнесу?"
+    )
+    
+    payment_method = models.CharField(
+        max_length=10, 
+        choices=PaymentMethod.choices, 
+        verbose_name='Метод оплаты'
+    )
+
+    # Учитывается ли в налоговой базе (для доходов - облагаемый, для расходов - учитываемый)
+    is_taxable = models.BooleanField(
+        default=True,
+        verbose_name="Учитывается в налоговой базе?"
     )
 
     transaction_type = models.CharField(max_length=10, choices=TransactionType.choices, verbose_name='Тип операции')
@@ -61,9 +93,7 @@ class Transaction(models.Model):
     )
 
     description = models.TextField(blank=True, max_length=100, verbose_name='Описание')
-
     transaction_date = models.DateField(verbose_name='Дата операции')
-
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания записи')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
@@ -75,19 +105,8 @@ class Transaction(models.Model):
         verbose_name_plural = 'Транзакции'
         ordering = ['-transaction_date', '-created_at']
         indexes = [
-            models.Index(fields=['-transaction_date', 'user']),
+            models.Index(fields=['-transaction_date', 'user', 'is_business']),
         ]
 
-    def clean(self) -> None:
-        if self.category and self.category.category_type != self.transaction_type:
-            raise ValidationError({
-                'category': (
-                    f"Категория '{self.category.name}' имеет тип '{self.category.category_type}', "
-                    f"а операция имеет тип '{self.transaction_type}'"
-                )
-            })
-
     def save(self, *args, **kwargs):
-        # ensure model-level validation runs on save
-        self.full_clean()
         super().save(*args, **kwargs)

@@ -17,4 +17,9 @@ class TransactionFilter(django_filters.FilterSet):
         fields = [
             'transaction_type',
             'category',
+            'is_business',   
+            'payment_method', 
+            'is_taxable',     
+            'activity_code',  
         ]
+

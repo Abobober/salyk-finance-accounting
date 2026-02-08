@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import CustomUser
+from .models import ActivityCode, CustomUser, OrganizationProfile
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -44,3 +44,57 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'email', 'first_name', 'last_name', 'telegram_id', 'date_joined')
         read_only_fields = ('id', 'date_joined')  # Эти поля нельзя изменять через API
+
+
+class OnboardingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationProfile
+        fields = ('org_type', 'tax_regime', 'primary_activity', 
+                  'additional_activities', 'cash_tax_rate', 'non_cash_tax_rate')
+
+    def validate_tax_regime(self, value):
+        if value == OrganizationProfile.TaxRegime.GENERAL:
+            raise serializers.ValidationError("Общий налоговый режим временно недоступен.")
+        return value
+    
+class ActivityCodeSerializer(serializers.ModelSerializer):
+    """Сериализатор для чтения справочника видов деятельности."""
+    class Meta:
+        model = ActivityCode
+        fields = ('code', 'section', 'name')
+        read_only_fields = ('code', 'section', 'name')
+
+class OrganizationProfileSerializer(serializers.ModelSerializer):
+    """Сериализатор для онбординга и управления профилем налогоплательщика."""
+    
+    # Добавляем read-only поля названий для удобства
+    primary_activity_name = serializers.CharField(source='primary_activity.name', read_only=True)
+
+    class Meta:
+        model = OrganizationProfile
+        fields = (
+            'org_type', 
+            'tax_regime', 
+            'primary_activity', 
+            'primary_activity_name',
+            'additional_activities', 
+            'cash_tax_rate', 
+            'non_cash_tax_rate',
+            'is_onboarded', # это поле для определения статуса онбординга
+        )
+        # is_onboarded будем менять программно при сохранении
+        read_only_fields = ('is_onboarded', 'primary_activity_name') 
+
+    def validate_tax_regime(self, value):
+        """Валидация заглушки для Общего налогового режима."""
+        if value == OrganizationProfile.TaxRegime.GENERAL:
+            raise serializers.ValidationError("Общий налоговый режим временно недоступен для выбора.")
+        return value
+
+    def update(self, instance, validated_data):
+        """При обновлении профиля автоматически помечаем онбординг как завершенный."""
+        updated_instance = super().update(instance, validated_data)
+        if not updated_instance.is_onboarded:
+            updated_instance.is_onboarded = True
+            updated_instance.save()
+        return updated_instance

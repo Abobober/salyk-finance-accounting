@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Category, Transaction
 from django.db.models import Q
+from users.models import ActivityCode
 
 
 
@@ -22,6 +23,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
+    activity_code_name = serializers.CharField(source='activity_code.name', read_only=True)
 
     class Meta:
         model = Transaction
@@ -34,8 +36,13 @@ class TransactionSerializer(serializers.ModelSerializer):
             'description',
             'transaction_date',
             'created_at',
+            'payment_method',
+            'is_business',
+            'is_taxable',
+            'activity_code',
+            'activity_code_name',
         )
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('id', 'created_at', 'activity_code_name')
         
     
     def __init__(self, *args, **kwargs):
@@ -45,6 +52,9 @@ class TransactionSerializer(serializers.ModelSerializer):
             user = request.user
             self.fields['category'].queryset = Category.objects.filter(
                 Q(user=user) | Q(is_system=True)
+            )
+            self.fields['activity_code'].queryset = ActivityCode.objects.filter(
+            Q(primary_for=user.profile) | Q(secondary_for=user.profile)
             )
         else:
             self.fields['category'].queryset = Category.objects.filter(is_system=True)
@@ -62,6 +72,12 @@ class TransactionSerializer(serializers.ModelSerializer):
         if category and t_type and category.category_type != t_type:
             raise serializers.ValidationError({
                 'category': f"Тип категории ({category.get_category_type_display()}) не совпадает с типом операции ({t_type})"
+            })
+        
+        # Дополнительная валидация: Если транзакция бизнес, то activity_code обязателен
+        if attrs.get('is_business') and not attrs.get('activity_code'):
+             raise serializers.ValidationError({
+                'activity_code': "Для бизнес-транзакции необходимо указать вид деятельности."
             })
         
         return attrs
