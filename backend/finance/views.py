@@ -1,7 +1,6 @@
 from django.db.models import Sum, Q
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Category, Transaction
 from .serializers import CategorySerializer, TransactionSerializer
@@ -14,8 +13,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsCategoryOwnerOrSystemReadOnly]
 
     def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return Category.objects.none()
         return Category.objects.filter(user=self.request.user) | Category.objects.filter(is_system=True)
 
     def perform_create(self, serializer):
@@ -29,14 +26,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['transaction_date', 'amount', 'created_at']
 
     def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return Transaction.objects.none()
         return Transaction.objects.filter(user=self.request.user).select_related('category', 'activity_code')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=False, methods=['get'])
     def summary_by_category(self, request):
         queryset = self.filter_queryset(self.get_queryset())
         summary = (

@@ -84,20 +84,11 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Finance Accounting API',
+    'TITLE': 'Finance & Accounting API',
+    'DESCRIPTION': '',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    
-    # 1. Удаляем (или комментируем) ENUM_NAME_OVERRIDES, если он был
-    # 'ENUM_NAME_OVERRIDES': { ... }, 
-
-    # 2. Включаем автоматическое разрешение конфликтов имен
-    'SELECT_ENUM_NAME_COMBINATIONS': True,
-    
-    # 3. Добавляем этот хук (он обязателен для работы с энумами)
-    'POSTPROCESSING_HOOKS': [
-        'drf_spectacular.hooks.postprocess_schema_enums'
-    ],
+    'SCHEMA_GENERATOR_CLASS': 'config.openapi.DynamicAutoSchema',
 }
 
 # Настройки JWT токенов
