@@ -1,5 +1,5 @@
 import pandas as pd
-from users.models import ActivityCode
+from activities.models import ActivityCode
 import re
 
 def import_gked_from_excel(file_path):
@@ -45,6 +45,6 @@ def import_gked_from_excel(file_path):
 
 # python manage.py shell
 # Внутри оболочки:
-# from scripts.import_activities_code import import_gked_from_excel
-# import_gked_from_excel('./scripts/activity_codes_dict.xlsx')
+# from activities.scripts.import_activities_code import import_gked_from_excel
+# import_gked_from_excel('./activities/scripts/activity_codes_dict.xlsx')
 # exit()

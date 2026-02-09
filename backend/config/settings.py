@@ -48,9 +48,12 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'django_filters',
     'drf_spectacular',
+    'django_extensions',
 
     'users',
     'finance',
+    'organization',
+    'activities',
 ]
 
 # Настройка REST Framework

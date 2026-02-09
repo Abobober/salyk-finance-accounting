@@ -1,7 +1,6 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
 
 class CustomUserManager(BaseUserManager):
     """Менеджер пользователей, использующий email как логин."""
@@ -62,41 +61,3 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
-
-
-class ActivityCode(models.Model):
-    """Справочник ГКЭД (ОКЭД) Кыргызстана."""
-    code = models.CharField(max_length=20, unique=True, verbose_name="Код (ГКЭД)")
-    section = models.CharField(max_length=5, verbose_name="Секция")
-    name = models.TextField(verbose_name="Наименование деятельности")
-
-    def __str__(self):
-        return f"{self.code} - {self.name}"
-
-    class Meta:
-        verbose_name = "Вид деятельности"
-        verbose_name_plural = "Виды деятельности"
-
-class OrganizationProfile(models.Model):
-    """Налоговый профиль пользователя (ИП/ОсОО)."""
-    class OrgType(models.TextChoices):
-        IE = 'ie', 'ИП (Индивидуальный предприниматель)'
-        LLC = 'llc', 'ОсОО (Общество с ограниченной ответственностью)'
-
-    class TaxRegime(models.TextChoices):
-        GENERAL = 'general', 'Общий налоговый режим'
-        SINGLE = 'single', 'Единый налог'
-
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
-    org_type = models.CharField(max_length=10, choices=OrgType.choices)
-    tax_regime = models.CharField(max_length=15, choices=TaxRegime.choices)
-    
-    # Виды деятельности
-    primary_activity = models.ForeignKey(ActivityCode, on_delete=models.PROTECT, related_name='primary_for')
-    additional_activities = models.ManyToManyField(ActivityCode, blank=True, related_name='secondary_for')
-
-    # Ставки налогов (вводятся вручную пользователем)
-    cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Ставка (наличные, %)")
-    non_cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Ставка (безнал, %)")
-
-    is_onboarded = models.BooleanField(default=False)

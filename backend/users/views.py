@@ -2,9 +2,7 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import filters
-from .models import ActivityCode, CustomUser, OrganizationProfile
-from .serializers import ActivityCodeSerializer, OrganizationProfileSerializer, UserRegistrationSerializer, UserProfileSerializer
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.parsers import JSONParser
@@ -12,6 +10,8 @@ from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
+from .serializers import UserRegistrationSerializer, UserProfileSerializer
+from .models import CustomUser
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -126,31 +126,3 @@ class LogoutView(APIView):
             raise
         except Exception:
             return Response({'detail': 'Invalid or already blacklisted token.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-class ActivityCodeViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint для просмотра справочника ГКЭД (ОКЭД).
-    Доступен всем, чтобы можно было выбрать вид деятельности при регистрации/онбординге.
-    """
-    queryset = ActivityCode.objects.all()
-    serializer_class = ActivityCodeSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['code', 'name']
-
-class OrganizationProfileView(generics.RetrieveUpdateAPIView):
-    """
-    API endpoint для получения/обновления налогового профиля текущего пользователя.
-    Используется как раз для прохождения онбординга.
-    """
-    serializer_class = OrganizationProfileSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        """Возвращает или создает профиль для текущего пользователя."""
-        # Используем get_or_create, чтобы гарантировать наличие профиля при первом обращении
-        profile, created = OrganizationProfile.objects.get_or_create(user=self.request.user)
-        return profile
-
-    # используем RetrieveUpdateAPIView, POST запросы здесь не нужны, 
-    # онбординг завершается через PUT/PATCH, который вызывает метод update() сериализатора.

@@ -21,11 +21,6 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from rest_framework.routers import DefaultRouter
-from users.views import ActivityCodeViewSet, OrganizationProfileView 
-
-router = DefaultRouter()
-router.register(r'activity-codes', ActivityCodeViewSet, basename='activity-code')
 
 
 urlpatterns = [
@@ -43,12 +38,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Путь: /api/users/profile/onboarding/
     path('api/users/', include('users.urls')),
-
-    path('api/users/profile/onboarding/', OrganizationProfileView.as_view(), name='user-onboarding-profile'),
-
+    path('api/organization/', include('organization.urls')),
     path('api/finance/', include('finance.urls')),
-
-    path('api/', include(router.urls)),
+    path('api/activities/', include('activities.urls')),
 ]

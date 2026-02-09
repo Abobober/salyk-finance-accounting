@@ -2,9 +2,9 @@ from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
-from django.core.exceptions import ValidationError
 
-from users.models import ActivityCode
+from activities.models import ActivityCode
+from organization.models import OrganizationActivity
 
 
 class Category(models.Model):
@@ -32,6 +32,7 @@ class Category(models.Model):
     class Meta:
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
+        ordering = ['category_type', 'name']
         constraints = [
             models.UniqueConstraint(fields=['user', 'name', 'category_type'], name='unique_category_per_user')
         ]
@@ -57,34 +58,32 @@ class Transaction(models.Model):
 
     # Связь с видом деятельности из онбординга
     activity_code = models.ForeignKey(
-        ActivityCode, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        ActivityCode,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         verbose_name="Вид деятельности"
     )
-    
+
     is_business = models.BooleanField(
-        default=True, 
+        default=True,
         verbose_name="Относится к бизнесу?"
     )
-    
+
     payment_method = models.CharField(
-        max_length=10, 
-        choices=PaymentMethod.choices, 
+        max_length=10,
+        choices=PaymentMethod.choices,
         verbose_name='Метод оплаты'
     )
 
-    # Учитывается ли в налоговой базе (для доходов - облагаемый, для расходов - учитываемый)
+    # Учитывается ли в налоговой базе
     is_taxable = models.BooleanField(
         default=True,
         verbose_name="Учитывается в налоговой базе?"
     )
 
     transaction_type = models.CharField(max_length=10, choices=TransactionType.choices, verbose_name='Тип операции')
-
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Категория')
-
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -97,6 +96,23 @@ class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания записи')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
+    # Автоматически подтягиваем ставки из OrganizationActivity
+    cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    non_cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_business and self.activity_code:
+            try:
+                org_activity = OrganizationActivity.objects.get(
+                    profile=self.user.profile,
+                    activity=self.activity_code
+                )
+                self.cash_tax_rate = org_activity.cash_tax_rate
+                self.non_cash_tax_rate = org_activity.non_cash_tax_rate
+            except OrganizationActivity.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.get_transaction_type_display()} {self.amount} ({self.transaction_date})"
 
@@ -107,6 +123,3 @@ class Transaction(models.Model):
         indexes = [
             models.Index(fields=['-transaction_date', 'user', 'is_business']),
         ]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
