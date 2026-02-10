@@ -7,7 +7,6 @@ from rest_framework.views import APIView
 from organization.models import OrganizationActivity, OrganizationProfile
 from organization.serializers import OrganizationProfileSerializer, OrganizationActivitySerializer, OnboardingFinalizeSerializer
 
-
 class OrganizationProfileView(generics.RetrieveUpdateAPIView):
     """
     API endpoint для получения/обновления налогового профиля текущего пользователя.

@@ -88,7 +88,7 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': '',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SCHEMA_GENERATOR_CLASS': 'config.openapi.DynamicAutoSchema',
+    'SCHEMA_GENERATOR_CLASS': 'config.openapi.SafeAutoSchema',
 }
 
 # Настройки JWT токенов
@@ -105,30 +105,10 @@ SIMPLE_JWT = {
     'AUDIENCE': None,
     'ISSUER': None,
     
-    'AUTH_HEADER_TYPES': ('Bearer',),  # Убедитесь, что это есть
+    'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
-}
-
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'JWT токен в формате: Bearer <token>'
-        }
-    },
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'SUPPORTED_SUBMIT_METHODS': ['get', 'post', 'put', 'delete', 'patch'],
-    'DEFAULT_AUTO_SCHEMA_CLASS': 'drf_yasg.inspectors.SwaggerAutoSchema',
-    'SECURITY_REQUIREMENTS': [
-        {
-            'Bearer': []
-        }
-    ],
 }
 
 MIDDLEWARE = [

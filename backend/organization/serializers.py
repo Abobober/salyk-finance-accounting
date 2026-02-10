@@ -1,8 +1,6 @@
 from rest_framework import serializers
 from .models import OrganizationProfile, OrganizationActivity
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+
 
 class OrganizationProfileSerializer(serializers.ModelSerializer):
     """Сериализатор для получения и обновления налогового профиля пользователя."""
@@ -63,12 +61,3 @@ class OrganizationActivitySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Основной вид деятельности уже выбран")
         return attrs
 
-class OrganizationStatusView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        profile, _ = OrganizationProfile.objects.get_or_create(user=request.user)
-        return Response({
-            "onboarding_status": profile.onboarding_status,
-            "is_completed": profile.onboarding_status == OrganizationProfile.OnboardingStatus.COMPLETED
-        })
