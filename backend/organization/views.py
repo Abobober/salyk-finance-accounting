@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from organization.models import OrganizationActivity, OrganizationProfile
-from organization.serializers import OrganizationProfileSerializer, OrganizationActivitySerializer, OnboardingFinalizeSerializer
+from organization.serializers import OrganizationProfileSerializer, OrganizationActivitySerializer, OnboardingFinalizeSerializer, OrganizationStatusSerializer
 
 class OrganizationProfileView(generics.RetrieveUpdateAPIView):
     """
@@ -16,6 +16,7 @@ class OrganizationProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
+        
         """Возвращает или создает профиль для текущего пользователя."""
         # Используем get_or_create, чтобы гарантировать наличие профиля при первом обращении
         profile, _ = OrganizationProfile.objects.get_or_create(user=self.request.user)
@@ -30,6 +31,8 @@ class OrganizationActivityListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return OrganizationActivity.objects.none()
         return OrganizationActivity.objects.filter(profile=self.request.user.organization)
 
     def perform_create(self, serializer):
@@ -55,10 +58,12 @@ class OrganizationProfileFinalizeView(generics.UpdateAPIView):
 
 class OrganizationStatusView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = OrganizationStatusSerializer
 
     def get(self, request):
         profile, _ = OrganizationProfile.objects.get_or_create(user=request.user)
-        return Response({
+        data = {
             "onboarding_status": profile.onboarding_status,
             "is_completed": profile.onboarding_status == OrganizationProfile.OnboardingStatus.COMPLETED
-        })
+        }
+        return Response(data)

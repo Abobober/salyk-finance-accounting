@@ -13,6 +13,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsCategoryOwnerOrSystemReadOnly]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Category.objects.none()
+        
         return Category.objects.filter(user=self.request.user) | Category.objects.filter(is_system=True)
 
     def perform_create(self, serializer):
@@ -26,6 +29,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['transaction_date', 'amount', 'created_at']
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Transaction.objects.none()
         return Transaction.objects.filter(user=self.request.user).select_related('category', 'activity_code')
 
     def perform_create(self, serializer):

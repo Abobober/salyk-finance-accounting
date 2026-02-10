@@ -43,3 +43,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'email', 'first_name', 'last_name', 'telegram_id', 'date_joined')
         read_only_fields = ('id', 'date_joined')  # Эти поля нельзя изменять через API
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

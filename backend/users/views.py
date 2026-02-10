@@ -9,7 +9,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserRegistrationSerializer, UserProfileSerializer
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, LogoutSerializer
 from .models import CustomUser
 
 
@@ -89,6 +89,7 @@ class LogoutView(APIView):
     - Frontend flow: when logging out, discard local tokens and call this endpoint with the refresh token to blacklist it server-side.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
 
     @parser_classes([JSONParser])
     def post(self, request):

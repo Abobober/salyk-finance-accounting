@@ -61,3 +61,6 @@ class OrganizationActivitySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Основной вид деятельности уже выбран")
         return attrs
 
+class OrganizationStatusSerializer(serializers.Serializer):
+    onboarding_status = serializers.CharField()
+    is_completed = serializers.BooleanField()
