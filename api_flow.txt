@@ -1,53 +1,82 @@
-1. Регистрация пользователя
-POST /users/register
-Тело: { "email": "...", "password": "...", "password2": "...", "first_name": "...", "last_name": "..." }
+REGISTRATION + ONBOARDING + ACCESS CONTROL API FLOW
 
-2. Профиль пользователя
-GET /users/profile — получить профиль
-PATCH /users/profile — редактировать профиль: { "first_name": "...", "last_name": "..." }
+GLOBAL RULE (BACKEND):
+- All business API require:
+  IsAuthenticated + IsOnboardingCompleted
+- Until onboarding_status == "completed":
+  → any non-onboarding API returns 403
 
-3. JWT-токены
-POST /api/token/ — получить токены: { "email": "...", "password": "..." }
-POST /api/token/refresh/ — обновить access token: { "refresh": "<refresh_token>" }
-POST /users/logout/ — выйти: { "refresh": "<refresh_token>" }
+────────────────────────────────
 
-4. Онбординг организации
+1. Registration
+POST /api/users/register/
+→ create user
 
-4.1 Выбор типа организации
-PATCH /organization/profile
-Тело: { "org_type": "ie" } или "llc"
+2. Login
+POST /api/token/
+→ access + refresh tokens
 
-4.2 Выбор налогового режима
-PATCH /organization/profile
-Тело: { "tax_regime": "single" } или "general"
+3. App entry point (ALWAYS)
+GET /api/organization/status/
+Auth: Bearer access
 
-4.3 Добавление видов деятельности + ставок
-POST /organization/activities
-Тело: { "activity": <id>, "cash_tax_rate": "4.00", "non_cash_tax_rate": "2.00", "is_primary": true }
+Response:
+{
+  "onboarding_status": "not_started" | "org_type" | "tax_regime" | "activities" | "completed"
+}
 
-4.4 Редактирование / удаление вида деятельности
-PATCH / DELETE /organization/activities/<id>/
+Frontend rule:
+- if completed → open main app
+- else → redirect to /onboarding/{step}
 
-4.5 Завершение онбординга
-POST /organization/profile/finalize
+────────────────────────────────
+ONBOARDING API (ALLOWED BEFORE COMPLETION)
+(permission: IsAuthenticated only)
+
+4. Organization profile
+GET /api/organization/profile/
+
+5. Step: Organization type
+PATCH /api/organization/profile/
+{
+  "org_type": "ie" | "llc"
+}
+
+6. Step: Tax regime
+PATCH /api/organization/profile/
+{
+  "tax_regime": "single" | "general"
+}
+
+7. Step: Activities
+GET  /api/activities/                  (dictionary)
+GET  /api/organization/activities/
+POST /api/organization/activities/
+{
+  "activity": <id>,
+  "cash_tax_rate": "2.00",
+  "non_cash_tax_rate": "3.00",
+  "is_primary": true
+}
+
+Rules:
+- at least one activity
+- only one primary activity
+
+8. Finalize onboarding
+POST /api/organization/finalize/
 → onboarding_status = "completed"
 
-4.6 Проверка статуса онбординга
-GET /organization/status
-Ответ: { "onboarding_status": "org_type", "is_completed": false }
+────────────────────────────────
+AFTER ONBOARDING (BUSINESS API UNLOCKED)
 
-5. Финансы
+9. Re-check status
+GET /api/organization/status/
+→ completed
 
-5.1 Категории
-GET /finance/categories/ — список категорий (системные + пользовательские)
-POST /finance/categories/ — создать категорию: { "name": "...", "category_type": "income" }
-PATCH / DELETE /finance/categories/<id>/
+10. Main app access
+/finance/*
+→ allowed (200)
 
-5.2 Транзакции
-GET /finance/transactions/ — список транзакций пользователя
-POST /finance/transactions/ — добавить транзакцию: { "amount": "1000.00", "transaction_type": "income", "category": 5, "description": "...", "transaction_date": "2026-02-09", "payment_method": "cash", "is_business": true, "is_taxable": true, "activity_code": 123 }
-PATCH / DELETE /finance/transactions/<id>/
-
-5.3 Сводка по категориям
-GET /finance/transactions/summary_by_category/
-Поддерживаются фильтры: date_from, date_to, transaction_type, category, is_business, payment_method, is_taxable, activity_code
+If onboarding not completed:
+→ 403 "Onboarding not completed"

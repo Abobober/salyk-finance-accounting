@@ -4,13 +4,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Category, Transaction
 from .serializers import CategorySerializer, TransactionSerializer
-from .permissions import IsCategoryOwnerOrSystemReadOnly
+from .permissions import IsCategoryOwnerOrSystemReadOnly, IsOnboardingCompleted
 from .filters import TransactionFilter
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated, IsCategoryOwnerOrSystemReadOnly]
+    permission_classes = [IsAuthenticated, IsCategoryOwnerOrSystemReadOnly, IsOnboardingCompleted]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -24,7 +24,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOnboardingCompleted]
     filterset_class = TransactionFilter
     ordering_fields = ['transaction_date', 'amount', 'created_at']
 

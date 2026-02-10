@@ -63,7 +63,8 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT для аутентификации API
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # По умолчанию доступ только авторизованным
+        'rest_framework.permissions.IsAuthenticated',
+        'finance.permissions.IsOnboardingCompleted',  # Проверка завершения онбординга
     ],
         "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 20,
