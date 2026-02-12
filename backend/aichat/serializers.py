@@ -1,5 +1,5 @@
-# aichat/serializers.py
 from rest_framework import serializers
 
 class ChatSerializer(serializers.Serializer):
-    text = serializers.CharField()
+    message = serializers.CharField()
+    previous_assistant = serializers.DictField(required=False)

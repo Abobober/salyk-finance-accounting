@@ -1,34 +1,34 @@
-from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny  # <-- добавлено
+from rest_framework.permissions import AllowAny
 import requests
 import json
 import os
 
-# Твой OpenRouter API ключ
+from .serializers import ChatSerializer
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_NAME = "stepfun/step-3.5-flash:free"
 
-class OpenRouterView(APIView):
+
+class OpenRouterView(GenericAPIView):
     """
     View для общения с OpenRouter через модель stepfun/step-3.5-flash:free
     """
-    permission_classes = [AllowAny]  # <-- делаем view открытым
+    permission_classes = [AllowAny]
+    serializer_class = ChatSerializer
 
     def post(self, request):
-        user_message = request.data.get("message")
-        if not user_message:
-            return Response(
-                {"error": "Сообщение пользователя не предоставлено"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_message = serializer.validated_data["message"]
 
         messages = [{"role": "user", "content": user_message}]
 
-        # Если пользователь передал предыдущие reasoning_details, добавляем их
-        previous_assistant = request.data.get("previous_assistant")
+        previous_assistant = serializer.validated_data.get("previous_assistant")
         if previous_assistant:
             messages.append(previous_assistant)
 
@@ -44,7 +44,12 @@ class OpenRouterView(APIView):
         }
 
         try:
-            response = requests.post(OPENROUTER_URL, headers=headers, data=json.dumps(payload))
+            response = requests.post(
+                OPENROUTER_URL,
+                headers=headers,
+                data=json.dumps(payload),
+                timeout=60,
+            )
         except requests.exceptions.RequestException as e:
             return Response(
                 {"error": "Ошибка запроса к OpenRouter", "details": str(e)},
@@ -54,23 +59,21 @@ class OpenRouterView(APIView):
         try:
             data = response.json()
         except ValueError:
-            # OpenRouter вернул HTML или другой текст
             return Response(
                 {
                     "error": "OpenRouter вернул не JSON",
                     "status_code": response.status_code,
-                    "content": response.text[:1000]  # первые 1000 символов для безопасности
+                    "content": response.text[:1000]
                 },
                 status=status.HTTP_502_BAD_GATEWAY
             )
 
-        # Берём ответ модели
         try:
-            assistant_message = data['choices'][0]['message']
+            assistant_message = data["choices"][0]["message"]
         except (KeyError, IndexError):
             return Response(
                 {"error": "Не удалось получить ответ модели", "raw_response": data},
                 status=status.HTTP_502_BAD_GATEWAY
             )
 
-        return Response({"assistant": assistant_message})
+        return Response({"assistant": assistant_message}, status=status.HTTP_200_OK)
