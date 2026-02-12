@@ -42,6 +42,6 @@ urlpatterns = [
     path('api/organization/', include('organization.urls')),
     path('api/finance/', include('finance.urls')),
     path('api/', include('activities.urls')),
-    path("aichat/", include("aichat.urls")),
+    path("api/aichat/", include("aichat.urls")),
 
 ]
