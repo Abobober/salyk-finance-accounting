@@ -1,5 +1,5 @@
 from rest_framework import serializers
 
-class ChatSerializer(serializers.Serializer):
+class ChatSessionSerializer(serializers.Serializer):
     message = serializers.CharField()
-    previous_assistant = serializers.DictField(required=False)
+    session_id = serializers.CharField(required=True)

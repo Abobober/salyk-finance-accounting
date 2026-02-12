@@ -3,10 +3,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 import requests
-import json
 import os
-
-from .serializers import ChatSerializer
+from .serializers import ChatSessionSerializer
+from .chat_sessions import get_history, append_history
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -15,27 +14,46 @@ MODEL_NAME = "stepfun/step-3.5-flash:free"
 
 class OpenRouterView(GenericAPIView):
     """
-    View для общения с OpenRouter через модель stepfun/step-3.5-flash:free
+    AI-Бухгалтер Кыргызстана с временной историей в RAM
     """
     permission_classes = [AllowAny]
-    serializer_class = ChatSerializer
+    serializer_class = ChatSessionSerializer
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user_message = serializer.validated_data["message"]
+        message = serializer.validated_data["message"]
+        session_id = serializer.validated_data["session_id"]
 
-        messages = [{"role": "user", "content": user_message}]
+        # Получаем историю из RAM
+        history = get_history(session_id)
 
-        previous_assistant = serializer.validated_data.get("previous_assistant")
-        if previous_assistant:
-            messages.append(previous_assistant)
+        # Формируем сообщения для модели
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Ты профессиональный бухгалтер Кыргызстана с опытом более 15 лет. "
+                    "Специализируешься на ИП и ОсОО. Отлично знаешь налоговое законодательство КР, "
+                    "ГНС, отчетность, Единый налог, НДС, подоходный налог, соцфонд, страховые взносы, "
+                    "ЭСФ, ЭТТН и электронные сервисы налоговой. "
+                    "Отвечай структурировано, профессионально и строго по законам КР. "
+                    "Если данных недостаточно — задай уточняющий вопрос."
+                )
+            }
+        ]
+
+        # Добавляем историю
+        messages.extend(history)
+
+        # Добавляем текущее сообщение пользователя
+        messages.append({"role": "user", "content": message})
 
         payload = {
             "model": MODEL_NAME,
             "messages": messages,
-            "reasoning": {"enabled": True}
+            "temperature": 0.2
         }
 
         headers = {
@@ -47,10 +65,11 @@ class OpenRouterView(GenericAPIView):
             response = requests.post(
                 OPENROUTER_URL,
                 headers=headers,
-                data=json.dumps(payload),
-                timeout=60,
+                json=payload,
+                timeout=60
             )
-        except requests.exceptions.RequestException as e:
+            response.raise_for_status()
+        except requests.RequestException as e:
             return Response(
                 {"error": "Ошибка запроса к OpenRouter", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -58,22 +77,21 @@ class OpenRouterView(GenericAPIView):
 
         try:
             data = response.json()
-        except ValueError:
+            assistant_reply = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, ValueError):
             return Response(
-                {
-                    "error": "OpenRouter вернул не JSON",
-                    "status_code": response.status_code,
-                    "content": response.text[:1000]
-                },
+                {"error": "Некорректный ответ от OpenRouter", "raw": data},
                 status=status.HTTP_502_BAD_GATEWAY
             )
 
-        try:
-            assistant_message = data["choices"][0]["message"]
-        except (KeyError, IndexError):
-            return Response(
-                {"error": "Не удалось получить ответ модели", "raw_response": data},
-                status=status.HTTP_502_BAD_GATEWAY
-            )
+        # Сохраняем сообщения в RAM
+        append_history(session_id, "user", message)
+        append_history(session_id, "assistant", assistant_reply)
 
-        return Response({"assistant": assistant_message}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "assistant": assistant_reply,
+                "session_id": session_id
+            },
+            status=status.HTTP_200_OK
+        )
