@@ -15,7 +15,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 
+
+
 load_dotenv()
+
+# Получаем API ключ для OpenRouter из переменных окружения
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,21 +51,25 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
-    'drf_yasg',
     'django_filters',
-    'pytest_django',
+    'drf_spectacular',
+    'django_extensions',
 
     'users',
     'finance',
+    'organization',
+    'activities',
 ]
 
 # Настройка REST Framework
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT для аутентификации API
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # По умолчанию доступ только авторизованным
+        'rest_framework.permissions.IsAuthenticated',
+        'finance.permissions.IsOnboardingCompleted',  # Проверка завершения онбординга
     ],
         "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 20,
@@ -80,6 +89,13 @@ REST_FRAMEWORK = {
     },
 }
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Finance & Accounting API',
+    'DESCRIPTION': '',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_GENERATOR_CLASS': 'config.openapi.SafeAutoSchema',
+}
 
 # Настройки JWT токенов
 SIMPLE_JWT = {
@@ -95,30 +111,10 @@ SIMPLE_JWT = {
     'AUDIENCE': None,
     'ISSUER': None,
     
-    'AUTH_HEADER_TYPES': ('Bearer',),  # Убедитесь, что это есть
+    'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
-}
-
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'JWT токен в формате: Bearer <token>'
-        }
-    },
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'SUPPORTED_SUBMIT_METHODS': ['get', 'post', 'put', 'delete', 'patch'],
-    'DEFAULT_AUTO_SCHEMA_CLASS': 'drf_yasg.inspectors.SwaggerAutoSchema',
-    'SECURITY_REQUIREMENTS': [
-        {
-            'Bearer': []
-        }
-    ],
 }
 
 MIDDLEWARE = [

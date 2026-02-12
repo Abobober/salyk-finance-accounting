@@ -1,8 +1,7 @@
 from typing import Any, Dict
-
-from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import CustomUser
+from rest_framework import serializers
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -44,3 +43,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'email', 'first_name', 'last_name', 'telegram_id', 'date_joined')
         read_only_fields = ('id', 'date_joined')  # Эти поля нельзя изменять через API
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

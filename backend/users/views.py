@@ -1,14 +1,16 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, viewsets
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import CustomUser
-from .serializers import UserRegistrationSerializer, UserProfileSerializer
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.parsers import JSONParser
 from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, LogoutSerializer
+from .models import CustomUser
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -65,8 +67,10 @@ class CurrentUserView(APIView):
     - Returns: current authenticated user serialized (use to confirm login and load quick profile info)
     - Response: 200 OK with user object
     """
+
     permission_classes = [permissions.IsAuthenticated]
-    
+    serializer_class = UserProfileSerializer
+
     def get(self, request):
         """Возвращает информацию о текущем пользователе."""
         serializer = UserProfileSerializer(request.user)
@@ -85,6 +89,7 @@ class LogoutView(APIView):
     - Frontend flow: when logging out, discard local tokens and call this endpoint with the refresh token to blacklist it server-side.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
 
     @parser_classes([JSONParser])
     def post(self, request):

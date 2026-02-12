@@ -11,3 +11,19 @@ class IsCategoryOwnerOrSystemReadOnly(BasePermission):
         if obj.is_system:
             return request.method in SAFE_METHODS
         return obj.user == request.user
+
+
+class IsOnboardingCompleted(BasePermission):
+    message = "Onboarding not completed"
+
+    def has_permission(self, request, view):
+        user = request.user
+
+        if not user.is_authenticated:
+            return False
+
+        # если нет организации — онбординг не пройден
+        if not hasattr(user, "organization"):
+            return False
+
+        return user.organization.onboarding_status == "completed"
