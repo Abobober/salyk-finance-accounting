@@ -1,14 +1,7 @@
 import type { LoginRequest, RegisterRequest, TokenPair } from './types'
+import { getAuthHeaders } from './client'
 
 const API_BASE = '/api'
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token')
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  }
-}
 
 /** POST /api/token/ - получить access и refresh токены */
 export async function login(credentials: LoginRequest): Promise<TokenPair> {
@@ -56,5 +49,19 @@ export async function getCurrentUser() {
     headers: getAuthHeaders(),
   })
   if (!res.ok) throw new Error('Сессия истекла')
+  return res.json()
+}
+
+/** PATCH /api/users/profile/ - обновить профиль */
+export async function updateProfile(data: { first_name?: string; last_name?: string }) {
+  const res = await fetch(`${API_BASE}/users/profile/`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Ошибка обновления профиля')
+  }
   return res.json()
 }

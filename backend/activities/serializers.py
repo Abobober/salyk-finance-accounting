@@ -6,5 +6,5 @@ class ActivityCodeSerializer(serializers.ModelSerializer):
     """Сериализатор для чтения справочника видов деятельности."""
     class Meta:
         model = ActivityCode
-        fields = ('code', 'section', 'name')
-        read_only_fields = ('code', 'section', 'name')
+        fields = ('id', 'code', 'section', 'name')
+        read_only_fields = ('id', 'code', 'section', 'name')

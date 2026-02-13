@@ -104,7 +104,7 @@ class Transaction(models.Model):
         if self.is_business and self.activity_code:
             try:
                 org_activity = OrganizationActivity.objects.get(
-                    profile=self.user.profile,
+                    profile=self.user.organization,
                     activity=self.activity_code
                 )
                 self.cash_tax_rate = org_activity.cash_tax_rate

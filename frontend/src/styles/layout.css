@@ -28,6 +28,23 @@
   text-decoration: none;
 }
 
+.layout-nav {
+  display: flex;
+  gap: 16px;
+}
+
+.layout-nav a {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.layout-nav a:hover,
+.layout-nav a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .layout-user {
   display: flex;
   align-items: center;
@@ -99,3 +116,16 @@
   margin: 0;
   line-height: 1.5;
 }
+
+/* Формы и таблицы */
+.form-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.form-row .login-field { flex: 1; min-width: 160px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
+.data-table th { font-weight: 600; color: var(--color-primary); background: var(--color-bg); }
+.data-table tr:hover { background: #fafafa; }
+.btn-sm { padding: 6px 12px; font-size: 13px; border: 1px solid var(--color-border); background: transparent; border-radius: var(--radius); cursor: pointer; }
+.btn-sm:hover { background: var(--color-bg); }
+.btn-sm.danger { border-color: #c44; color: #8b2635; }
+.btn-sm.danger:hover { background: #fdf2f3; }
+.select-field { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 200px; }
