@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
+    path('api/telegram/', include('telegram_bot.urls')),
+
     path('api/users/', include('users.urls')),
     path('api/organization/', include('organization.urls')),
     path('api/finance/', include('finance.urls')),
