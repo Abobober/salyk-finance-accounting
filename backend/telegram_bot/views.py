@@ -8,11 +8,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .models import TelegramBindingToken
 from .permissions import IsTelegramBot
+from .serializers import TgLinkSerializer, TgAuthSerializer, TgConfirmSerializer
 
 User = get_user_model()
 
 class GetTelegramLinkView(APIView):
     """Эндпоинт выдает ссылку для привязки Telegram-аккаунта."""
+    serializer_class = TgLinkSerializer
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -30,6 +32,7 @@ class GetTelegramLinkView(APIView):
 
 class BotLinkConfirmView(APIView):
     """эндпоинт принимает код от бота и привязывает telegram_id к пользователю."""
+    serializer_class = TgConfirmSerializer
     permission_classes = [IsTelegramBot]
 
     def post(self, request):
@@ -53,6 +56,7 @@ class BotLinkConfirmView(APIView):
 
 class BotAuthView(APIView):
     """эндпоинт для аутентификации бота по telegram_id и выдачи JWT-токенов."""
+    serializer_class = TgAuthSerializer
     permission_classes = [IsTelegramBot]
 
     def post(self, request):
