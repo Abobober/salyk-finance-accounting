@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { listCategories, createCategory, updateCategory, deleteCategory, type Category } from '@/api/finance'
+import { listCategories, createCategory, deleteCategory, type Category } from '@/api/finance'
 import '@/styles/layout.css'
 import '@/styles/login.css'
 

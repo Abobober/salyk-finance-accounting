@@ -7,7 +7,6 @@ import {
   type Category,
   type TransactionCreate,
 } from '@/api/finance'
-import { listActivityCodes, type ActivityCode } from '@/api/activities'
 import { listOrganizationActivities, type OrganizationActivity } from '@/api/organization'
 import '@/styles/layout.css'
 import '@/styles/login.css'
@@ -15,7 +14,6 @@ import '@/styles/login.css'
 export function TransactionsPage() {
   const [items, setItems] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [activityCodes, setActivityCodes] = useState<ActivityCode[]>([])
   const [orgActivities, setOrgActivities] = useState<OrganizationActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +50,6 @@ export function TransactionsPage() {
 
   useEffect(() => {
     listCategories().then(setCategories)
-    listActivityCodes().then(setActivityCodes)
     listOrganizationActivities().then(setOrgActivities)
   }, [])
 

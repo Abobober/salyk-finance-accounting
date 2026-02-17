@@ -7,7 +7,8 @@ import {
   type ReactNode,
 } from 'react'
 import type { UserProfile } from '@/api/types'
-import { getCurrentUser, login as apiLogin, refreshToken } from '@/api/auth'
+import { getCurrentUser, login as apiLogin, refreshToken, logoutApi } from '@/api/auth'
+import { setTokens, clearTokens, getStoredRefresh } from '@/api/client'
 
 interface AuthState {
   user: UserProfile | null
@@ -22,36 +23,23 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const ACCESS_KEY = 'access_token'
-const REFRESH_KEY = 'refresh_token'
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const loadUser = useCallback(async () => {
-    const access = localStorage.getItem(ACCESS_KEY)
-    const refresh = localStorage.getItem(REFRESH_KEY)
-    if (!access && !refresh) {
+    const refresh = getStoredRefresh()
+    if (!refresh) {
       setIsLoading(false)
       return
     }
     try {
-      if (access) {
-        const u = await getCurrentUser()
-        setUser(u)
-        setIsLoading(false)
-        return
-      }
-      if (refresh) {
-        const { access: newAccess } = await refreshToken(refresh)
-        localStorage.setItem(ACCESS_KEY, newAccess)
-        const u = await getCurrentUser()
-        setUser(u)
-      }
+      const tokens = await refreshToken(refresh)
+      setTokens(tokens.access, tokens.refresh)
+      const u = await getCurrentUser()
+      setUser(u)
     } catch {
-      localStorage.removeItem(ACCESS_KEY)
-      localStorage.removeItem(REFRESH_KEY)
+      clearTokens()
     }
     setIsLoading(false)
   }, [])
@@ -63,17 +51,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const { access, refresh } = await apiLogin({ email, password })
-      localStorage.setItem(ACCESS_KEY, access)
-      if (refresh) localStorage.setItem(REFRESH_KEY, refresh)
+      setTokens(access, refresh)
       const u = await getCurrentUser()
       setUser(u)
     },
     []
   )
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(ACCESS_KEY)
-    localStorage.removeItem(REFRESH_KEY)
+  const logout = useCallback(async () => {
+    const refresh = getStoredRefresh()
+    if (refresh) {
+      try {
+        await logoutApi(refresh)
+      } catch {
+        // ignore
+      }
+    }
+    clearTokens()
     setUser(null)
   }, [])
 

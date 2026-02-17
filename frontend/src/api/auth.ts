@@ -17,8 +17,8 @@ export async function login(credentials: LoginRequest): Promise<TokenPair> {
   return res.json()
 }
 
-/** POST /api/token/refresh/ - обновить access токен */
-export async function refreshToken(refresh: string): Promise<{ access: string }> {
+/** POST /api/token/refresh/ - обновить access (и refresh при ROTATE_REFRESH_TOKENS) */
+export async function refreshToken(refresh: string): Promise<TokenPair> {
   const res = await fetch(`${API_BASE}/token/refresh/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,8 +52,17 @@ export async function getCurrentUser() {
   return res.json()
 }
 
+/** GET /api/users/profile/ - получить профиль */
+export async function getProfile() {
+  const res = await fetch(`${API_BASE}/users/profile/`, {
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) throw new Error('Ошибка загрузки профиля')
+  return res.json()
+}
+
 /** PATCH /api/users/profile/ - обновить профиль */
-export async function updateProfile(data: { first_name?: string; last_name?: string }) {
+export async function updateProfile(data: { first_name?: string; last_name?: string; email?: string }) {
   const res = await fetch(`${API_BASE}/users/profile/`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
@@ -64,4 +73,17 @@ export async function updateProfile(data: { first_name?: string; last_name?: str
     throw new Error(err.detail || 'Ошибка обновления профиля')
   }
   return res.json()
+}
+
+/** POST /api/users/logout/ - выход, blacklist refresh токена */
+export async function logoutApi(refresh: string) {
+  const res = await fetch(`${API_BASE}/users/logout/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ refresh }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Ошибка выхода')
+  }
 }

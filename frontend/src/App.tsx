@@ -5,9 +5,7 @@ import { MainLayout } from '@/components/MainLayout'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
-import { HomePage } from '@/pages/HomePage'
-import { CategoriesPage } from '@/pages/CategoriesPage'
-import { TransactionsPage } from '@/pages/TransactionsPage'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AiChatPage } from '@/pages/AiChatPage'
 import { TaxReportsPage } from '@/pages/TaxReportsPage'
@@ -27,10 +25,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route element={<MainLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/transactions" element={<TransactionsPage />} />
-              <Route path="/reports" element={<TaxReportsPage />} />
+              <Route path="/" element={<DashboardPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/aichat" element={<AiChatPage />} />
             </Route>
