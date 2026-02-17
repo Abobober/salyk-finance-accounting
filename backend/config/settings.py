@@ -57,8 +57,9 @@ INSTALLED_APPS = [
     'finance',
     'organization',
     'activities',
-    'telegram_bot',
     'aichat',
+    'tax_reports',
+    'telegram_bot',
 ]
 
 # Настройка REST Framework
@@ -197,6 +198,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Stage 4: cache for dashboard (Redis if REDIS_URL set, else LocMem)
 CACHES = {
