@@ -6,6 +6,7 @@ from .models import Category, Transaction
 from .serializers import CategorySerializer, TransactionSerializer
 from .permissions import IsCategoryOwnerOrSystemReadOnly, IsOnboardingCompleted
 from .filters import TransactionFilter
+from finance.services.transaction_service import TransactionService
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -19,8 +20,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return Category.objects.filter(user=self.request.user) | Category.objects.filter(is_system=True)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
+        TransactionService.create_transaction(
+            user=self.request.user,
+            validated_data=serializer.validated_data
+    )
 
 class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
@@ -31,7 +34,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Transaction.objects.none()
-        return Transaction.objects.filter(user=self.request.user).select_related('category', 'activity_code')
+        return (Transaction.objects
+                .filter(user=self.request.user).
+                select_related('category', 'activity_code', 'user')
+                .order_by('-transaction_date', '-created_at'))
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

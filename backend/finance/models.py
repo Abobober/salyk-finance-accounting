@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
-
+from django.db.models import Q
 from activities.models import ActivityCode
 from organization.models import OrganizationActivity
 
@@ -121,5 +121,13 @@ class Transaction(models.Model):
         verbose_name_plural = 'Транзакции'
         ordering = ['-transaction_date', '-created_at']
         indexes = [
-            models.Index(fields=['-transaction_date', 'user', 'is_business']),
-        ]
+        models.Index(fields=["user"]),
+        models.Index(fields=["transaction_date"]),
+        models.Index(fields=["created_at"]),
+        models.Index(fields=["user", "transaction_date"]),
+    ]
+
+        constraints = [
+        models.CheckConstraint(condition=Q(amount__gt=0), name="amount_positive"),
+        models.CheckConstraint(condition=Q(amount__lte=1000000000), name="amount_reasonable_limit"),
+    ]

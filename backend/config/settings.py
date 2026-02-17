@@ -11,31 +11,27 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import environ
 from pathlib import Path
-from dotenv import load_dotenv
 from datetime import timedelta
 
-
-
-load_dotenv()
-
-# Получаем API ключ для OpenRouter из переменных окружения
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env(
+    DEBUG=(bool, False)
+)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+#Настройки из окружения
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env('DEBUG')
+OPENROUTER_API_KEY = env('OPENROUTER_API_KEY')
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
 
 
 # Application definition
@@ -88,7 +84,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "1000/day",
         "anon": "100/day",
-    },
+        "ai": "5/min",
+    }
 }
 
 SPECTACULAR_SETTINGS = {
