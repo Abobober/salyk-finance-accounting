@@ -57,8 +57,9 @@ INSTALLED_APPS = [
     'finance',
     'organization',
     'activities',
-    'telegram_bot',
     'aichat',
+    'tax_reports',
+    'telegram_bot',
     'tax_reports',
 ]
 
