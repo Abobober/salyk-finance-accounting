@@ -1,11 +1,9 @@
-"""
-Stage 4: single dashboard payload — aggregates via annotate, cached per user.
-"""
+"""Dashboard service: aggregates via annotate, cached per user."""
 
-from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Sum, Q
+from django.db.models import Q, Sum
 
+from finance.constants import DEFAULT_RECENT_TRANSACTIONS_LIMIT, ZERO
 from finance.models import Transaction
 
 
@@ -18,7 +16,7 @@ def invalidate_dashboard_cache(user):
     cache.delete(dashboard_cache_key(user.id))
 
 
-def get_dashboard_data(user, recent_limit=10):
+def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT):
     """
     Build dashboard payload: totals (annotate), by_category (annotate), recent_transactions.
     Uses annotate/aggregate only; no N+1.
@@ -30,8 +28,8 @@ def get_dashboard_data(user, recent_limit=10):
         total_income=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.INCOME), default=0),
         total_expense=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.EXPENSE), default=0),
     )
-    total_income = totals['total_income'] or 0
-    total_expense = totals['total_expense'] or 0
+    total_income = totals['total_income'] or ZERO
+    total_expense = totals['total_expense'] or ZERO
 
     # By category via values + annotate
     by_category = (

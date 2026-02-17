@@ -1,10 +1,14 @@
 from decimal import Decimal
-from django.db import models
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.db import models
 from django.db.models import Q
+
 from activities.models import ActivityCode
 from organization.models import OrganizationActivity
+
+from .constants import MAX_TRANSACTION_AMOUNT, MIN_TRANSACTION_AMOUNT
 
 
 class Category(models.Model):
@@ -87,7 +91,7 @@ class Transaction(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(MIN_TRANSACTION_AMOUNT)],
         verbose_name='Сумма'
     )
 
@@ -128,6 +132,12 @@ class Transaction(models.Model):
     ]
 
         constraints = [
-        models.CheckConstraint(condition=Q(amount__gt=0), name="amount_positive"),
-        models.CheckConstraint(condition=Q(amount__lte=1000000000), name="amount_reasonable_limit"),
-    ]
+            models.CheckConstraint(
+                condition=Q(amount__gte=MIN_TRANSACTION_AMOUNT),
+                name="amount_positive"
+            ),
+            models.CheckConstraint(
+                condition=Q(amount__lte=MAX_TRANSACTION_AMOUNT),
+                name="amount_reasonable_limit"
+            ),
+        ]

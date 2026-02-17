@@ -1,15 +1,20 @@
-"""
-Analytics service for SPA graphs: time series, category breakdown, period comparisons.
-All queries use annotate/aggregate for performance.
-"""
+"""Analytics service for graphs: time series, category breakdown, period comparisons."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Sum, Q, Count
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth, TruncYear
 from django.utils import timezone
 
+from finance.constants import (
+    DATE_FORMAT,
+    DEFAULT_ANALYTICS_DAYS,
+    DEFAULT_CATEGORY_BREAKDOWN_LIMIT,
+    MONTH_FORMAT,
+    YEAR_FORMAT,
+    ZERO,
+)
 from finance.models import Transaction
 
 
@@ -36,26 +41,19 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
     if transaction_type:
         base_qs = base_qs.filter(transaction_type=transaction_type)
     
-    # Default: last 12 months if no dates provided
+    # Default: last N days if no dates provided
     if not date_from and not date_to:
         date_to = timezone.now().date()
-        date_from = date_to - timedelta(days=365)
+        date_from = date_to - timedelta(days=DEFAULT_ANALYTICS_DAYS)
         base_qs = base_qs.filter(transaction_date__gte=date_from, transaction_date__lte=date_to)
     
     # Group by period
-    if period == 'daily':
-        date_trunc = 'transaction_date'
-        date_format = '%Y-%m-%d'
-    elif period == 'monthly':
-        date_trunc = 'month'
-        date_format = '%Y-%m'
-    elif period == 'yearly':
-        date_trunc = 'year'
-        date_format = '%Y'
-    else:
-        period = 'monthly'
-        date_trunc = 'month'
-        date_format = '%Y-%m'
+    period_configs = {
+        'daily': ('transaction_date', DATE_FORMAT),
+        'monthly': ('month', MONTH_FORMAT),
+        'yearly': ('year', YEAR_FORMAT),
+    }
+    date_trunc, date_format = period_configs.get(period, ('month', MONTH_FORMAT))
     
     # Aggregate by period
     if date_trunc == 'transaction_date':
@@ -67,14 +65,15 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
         
         result = []
         for row in qs:
-            income = row['income'] or Decimal('0')
-            expense = row['expense'] or Decimal('0')
+            income = row['income'] or ZERO
+            expense = row['expense'] or ZERO
             result.append({
                 'period': row['transaction_date'].strftime(date_format),
                 'income': str(income),
                 'expense': str(expense),
                 'net': str(income - expense),
             })
+        return result
     else:
         # Monthly/Yearly: use Django's TruncMonth/TruncYear
         if date_trunc == 'month':
@@ -95,8 +94,8 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
         result = []
         for row in qs:
             period_str = row['period'].strftime(date_format) if row['period'] else ''
-            income = row['income'] or Decimal('0')
-            expense = row['expense'] or Decimal('0')
+            income = row['income'] or ZERO
+            expense = row['expense'] or ZERO
             result.append({
                 'period': period_str,
                 'income': str(income),
@@ -107,7 +106,7 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
     return result
 
 
-def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=None, limit=10):
+def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=None, limit=DEFAULT_CATEGORY_BREAKDOWN_LIMIT):
     """
     Category breakdown for a period (pie/bar chart data).
     
@@ -145,7 +144,7 @@ def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=
         result.append({
             'category_name': row['category__name'],
             'category_type': row['category__category_type'],
-            'total': str(row['total'] or Decimal('0')),
+            'total': str(row['total'] or ZERO),
             'count': row['count'],
         })
     
@@ -176,8 +175,8 @@ def get_period_comparison(user, period1_from, period1_to, period2_from, period2_
             count=Count('id'),
         )
         
-        income = stats['income'] or Decimal('0')
-        expense = stats['expense'] or Decimal('0')
+        income = stats['income'] or ZERO
+        expense = stats['expense'] or ZERO
         net = income - expense
         
         return {

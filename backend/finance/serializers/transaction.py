@@ -1,22 +1,19 @@
+"""Transaction serializers."""
+
 from decimal import Decimal
 
-from rest_framework import serializers
 from django.db.models import Q
+from rest_framework import serializers
 
-from .models import Category, Transaction
 from activities.models import ActivityCode
 
-
-class CategorySerializer(serializers.ModelSerializer):
-    category_type_display = serializers.CharField(source='get_category_type_display', read_only=True)
-
-    class Meta:
-        model = Category
-        fields = ('id', 'name', 'category_type', 'category_type_display', 'is_system', 'created_at')
-        read_only_fields = ('id', 'is_system', 'created_at')
+from finance.constants import MAX_TRANSACTION_AMOUNT, MIN_TRANSACTION_AMOUNT
+from finance.models import Category, Transaction
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    """Transaction serializer with validation and dynamic querysets."""
+
     category_name = serializers.CharField(source='category.name', read_only=True)
     activity_code_name = serializers.CharField(source='activity_code.name', read_only=True)
 
@@ -45,16 +42,12 @@ class TransactionSerializer(serializers.ModelSerializer):
             self.fields['category'].queryset = Category.objects.filter(is_system=True)
 
     def validate_amount(self, value):
-        """Stage 1.1: no negative or zero amounts; use Decimal."""
+        """Validate amount: must be positive and within limits."""
         if value is not None:
             if not isinstance(value, Decimal):
                 value = Decimal(str(value))
-            if value <= 0:
+            if value < MIN_TRANSACTION_AMOUNT:
                 raise serializers.ValidationError("Сумма должна быть положительной.")
-            if value > Decimal("1000000000"):
+            if value > MAX_TRANSACTION_AMOUNT:
                 raise serializers.ValidationError("Сумма превышает допустимый предел.")
         return value
-
-    def validate(self, attrs):
-        # Stage 2: business rules (category type match, activity_code for business) live in TransactionService
-        return attrs
