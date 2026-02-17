@@ -5,7 +5,9 @@ from rest_framework.permissions import AllowAny
 import requests
 import os
 from .serializers import ChatSessionSerializer
-from .chat_sessions import get_history, append_history
+from .models import ChatSession
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -16,7 +18,9 @@ class OpenRouterView(GenericAPIView):
     """
     AI-Бухгалтер Кыргызстана с временной историей в RAM
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "ai"
     serializer_class = ChatSessionSerializer
 
     def post(self, request):
@@ -26,8 +30,11 @@ class OpenRouterView(GenericAPIView):
         message = serializer.validated_data["message"]
         session_id = serializer.validated_data["session_id"]
 
-        # Получаем историю из RAM
-        history = get_history(session_id)
+        session, _ = ChatSession.objects.get_or_create(
+            session_id=session_id
+        )  
+
+        history = session.history
 
         # Формируем сообщения для модели
         messages = [
@@ -84,9 +91,8 @@ class OpenRouterView(GenericAPIView):
                 status=status.HTTP_502_BAD_GATEWAY
             )
 
-        # Сохраняем сообщения в RAM
-        append_history(session_id, "user", message)
-        append_history(session_id, "assistant", assistant_reply)
+        session.append_message("user", message)
+        session.append_message("assistant", assistant_reply)
 
         return Response(
             {

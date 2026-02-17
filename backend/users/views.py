@@ -1,10 +1,7 @@
-from rest_framework import generics, permissions, viewsets
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 from rest_framework.parsers import JSONParser
 from rest_framework.decorators import parser_classes
 from rest_framework.exceptions import PermissionDenied
@@ -25,7 +22,7 @@ class UserRegistrationView(generics.CreateAPIView):
     """
     queryset = CustomUser.objects.all()
     serializer_class = UserRegistrationSerializer
-    permission_classes = [permissions.AllowAny]  # Разрешаем доступ всем
+    permission_classes = [AllowAny]
     
     # Можно переопределить метод, чтобы вернуть кастомный ответ
     def create(self, request, *args, **kwargs):
@@ -52,7 +49,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     - Frontend: use this for profile page and profile edits.
     """
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def get_object(self):
         """Возвращает объект текущего авторизованного пользователя."""
@@ -68,7 +65,7 @@ class CurrentUserView(APIView):
     - Response: 200 OK with user object
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
 
     def get(self, request):

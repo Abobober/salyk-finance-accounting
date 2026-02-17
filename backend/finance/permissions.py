@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
@@ -22,8 +23,7 @@ class IsOnboardingCompleted(BasePermission):
         if not user.is_authenticated:
             return False
 
-        # если нет организации — онбординг не пройден
-        if not hasattr(user, "organization"):
+        try:
+            return user.organization.onboarding_status == "completed"
+        except ObjectDoesNotExist:
             return False
-
-        return user.organization.onboarding_status == "completed"
