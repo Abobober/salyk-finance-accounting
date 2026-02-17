@@ -8,6 +8,11 @@ export interface OrganizationProfile {
   org_type: OrgType | null
   tax_regime: TaxRegime | null
   onboarding_status: OnboardingStatus
+  tax_period_type?: 'preset' | 'custom' | null
+  tax_period_type_display?: string
+  tax_period_preset?: 'monthly' | 'quarterly' | 'yearly' | null
+  tax_period_preset_display?: string
+  tax_period_custom_day?: number | null
 }
 
 export interface OrganizationStatus {
@@ -35,7 +40,13 @@ export function getOrganizationProfile() {
 }
 
 /** PATCH /api/organization/profile/ */
-export function updateOrganizationProfile(data: Partial<Pick<OrganizationProfile, 'org_type' | 'tax_regime'>>) {
+export function updateOrganizationProfile(data: {
+  org_type?: OrgType
+  tax_regime?: TaxRegime
+  tax_period_type?: 'preset' | 'custom'
+  tax_period_preset?: 'monthly' | 'quarterly' | 'yearly'
+  tax_period_custom_day?: number
+}) {
   return apiFetch<OrganizationProfile>('/organization/profile/', {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -60,6 +71,17 @@ export function listOrganizationActivities() {
   return apiFetch<OrganizationActivity[] | { results: OrganizationActivity[] }>('/organization/activities/').then(
     (r) => (Array.isArray(r) ? r : (r.results ?? []))
   )
+}
+
+/** PATCH /api/organization/activities/:id/ */
+export function updateOrganizationActivity(
+  id: number,
+  data: { cash_tax_rate?: string; non_cash_tax_rate?: string; is_primary?: boolean }
+) {
+  return apiFetch<OrganizationActivity>(`/organization/activities/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
 }
 
 /** DELETE /api/organization/activities/:id/ */
