@@ -81,6 +81,11 @@ class Command(BaseCommand):
             default=90,
             help='За какой период создавать транзакции в днях (по умолчанию 90)',
         )
+        parser.add_argument(
+            '--skip-if-populated',
+            action='store_true',
+            help='Пропустить создание транзакций, если у пользователя уже есть транзакции',
+        )
 
     def handle(self, *args, **options):
         # 1. Создаём категории
@@ -94,6 +99,10 @@ class Command(BaseCommand):
         user = self._get_user(options['user'])
         if not user:
             self.stdout.write(self.style.WARNING('Пользователи не найдены. Создайте пользователя для генерации транзакций.'))
+            return
+
+        if options.get('skip_if_populated') and Transaction.objects.filter(user=user).exists():
+            self.stdout.write(self.style.SUCCESS(f'У пользователя {user.email} уже есть транзакции. Пропуск.'))
             return
 
         transactions_created = self._create_transactions(

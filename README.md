@@ -38,6 +38,12 @@ Backend-система финансового учета для индивиду
 6. `python manage.py migrate`
 7. `python manage.py runserver`
 
+### Быстрый запуск (одной командой)
+```powershell
+.\scripts\run_dev.ps1
+```
+Создаёт superuser (admin@gmail.com / admin), заполняет демо-данные (если пусто), запускает бэкенд, Telegram-бота и фронтенд.
+
 ## Структура репозитория
 - `main` - стабильная версия
 - `develop` - ветка активной разработки
