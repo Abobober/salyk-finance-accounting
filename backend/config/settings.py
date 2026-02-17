@@ -60,7 +60,6 @@ INSTALLED_APPS = [
     'aichat',
     'tax_reports',
     'telegram_bot',
-    'tax_reports',
 ]
 
 # Настройка REST Framework
