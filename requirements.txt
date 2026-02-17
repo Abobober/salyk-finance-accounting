@@ -8,5 +8,6 @@ openpyxl==3.1.5
 django-extensions==4.1
 django-filter==25.2
 requests==2.32.5
-django-environ==0.12.1
 reportlab
+django-environ==0.12.1
+pypdf

@@ -61,6 +61,7 @@ async function fetchWithAuth<T>(
     const msg = err.detail || err.message || err.error || err[Object.keys(err)[0]]?.[0] || `Ошибка ${res.status}`
     throw new Error(typeof msg === 'string' ? msg : String(msg))
   }
+
   if (res.status === 204) return undefined as T
   return res.json()
 }

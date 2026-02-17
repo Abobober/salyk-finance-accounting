@@ -1,16 +1,18 @@
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+import os
+from urllib.parse import urljoin
+
+from django.conf import settings
 from drf_spectacular.utils import extend_schema
+from organization.models import OrganizationProfile
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .serializers import UnifiedTaxRequestSerializer, UnifiedTaxReportResponseSerializer
-from organization.models import OrganizationProfile
-from .services.report_data_builder import ReportDataBuilder
-from .services.csv_generator import UnifiedTaxCSVGenerator
 from .services.ai_validator import AITaxValidator
-from django.conf import settings
-import os
+from .services.pdf_generator import UnifiedTaxPDFGenerator
+from .services.report_data_builder import ReportDataBuilder
 
 
 class GenerateUnifiedTaxReportView(APIView):
@@ -34,25 +36,32 @@ class GenerateUnifiedTaxReportView(APIView):
         except OrganizationProfile.DoesNotExist:
             return Response({"error": "Organization profile not found"}, status=404)
 
-        # Создаём отчёт
         builder = ReportDataBuilder(organization, year, quarter)
         report_data = builder.build_report_data()
 
-        # Генерируем CSV
-        file_name = f"unified_tax_{organization.id}_{year}_Q{quarter}.csv"
+        file_name = f"unified_tax_{organization.id}_{year}_Q{quarter}.pdf"
         file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-        csv_generator = UnifiedTaxCSVGenerator(report_data)
-        csv_generator.generate(file_path)
+        template_path = os.path.join(
+            settings.BASE_DIR, "tax_reports", "templates", "unified_tax_blank.pdf"
+        )
 
-        # AI-валидатор
+        try:
+            pdf_generator = UnifiedTaxPDFGenerator(report_data, template_path=template_path)
+            pdf_generator.generate(file_path)
+        except Exception as exc:
+            return Response(
+                {"error": f"Failed to generate PDF report: {exc}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         ai_validator = AITaxValidator()
         ai_comment = ai_validator.validate(report_data)
 
-        # Формируем URL для скачивания CSV
-        csv_url = request.build_absolute_uri(os.path.join(settings.MEDIA_URL, file_name))
-
-        return Response({
-            "report_data": report_data,
-            "csv_file": csv_url,
-            "ai_validation": ai_comment
-        })
+        pdf_url = request.build_absolute_uri(urljoin(settings.MEDIA_URL, file_name))
+        return Response(
+            {
+                "report_data": report_data,
+                "pdf_file": pdf_url,
+                "ai_validation": ai_comment,
+            }
+        )

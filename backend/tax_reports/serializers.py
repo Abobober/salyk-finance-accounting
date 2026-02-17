@@ -7,5 +7,5 @@ class UnifiedTaxRequestSerializer(serializers.Serializer):
 
 class UnifiedTaxReportResponseSerializer(serializers.Serializer):
     report_data = serializers.DictField()
-    csv_file = serializers.URLField()
+    pdf_file = serializers.URLField()
     ai_validation = serializers.CharField()

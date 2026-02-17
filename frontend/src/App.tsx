@@ -8,12 +8,18 @@ import { OnboardingPage } from '@/pages/OnboardingPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AiChatPage } from '@/pages/AiChatPage'
+import { TaxReportsPage } from '@/pages/TaxReportsPage'
 
 function App() {
   return (
     <AuthProvider>
       <OnboardingProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
