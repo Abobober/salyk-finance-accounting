@@ -7,6 +7,7 @@ import os
 
 from dotenv import load_dotenv
 from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from bot import build_dp
@@ -19,7 +20,7 @@ async def main():
     if not token:
         raise SystemExit("Укажите BOT_TOKEN в .env")
 
-    bot = Bot(token=token, parse_mode=ParseMode.HTML)
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = build_dp(bot)
 
     api = get_api_from_env()

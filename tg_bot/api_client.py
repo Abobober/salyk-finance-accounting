@@ -1,10 +1,6 @@
 """
 Клиент API Salyk Finance для бота.
-
-Требует от бэкенда:
-  - POST /api/bot/link/   — привязка по коду (code, telegram_id)
-  - POST /api/bot/auth/  — выдача JWT по telegram_id (X-Bot-Secret)
-Дальше бот использует стандартные эндпоинты с Bearer токеном.
+Использует /api/telegram/bot/link/ и /api/telegram/bot/auth/ (X-Bot-Secret).
 """
 import os
 from datetime import date
@@ -36,62 +32,128 @@ class SalykBotAPI:
             self._session = aiohttp.ClientSession()
         return self._session
 
+    def _bot_headers(self) -> dict:
+        h = {"Content-Type": "application/json"}
+        if self.bot_secret:
+            h["X-Bot-Secret"] = self.bot_secret
+        return h
+
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
 
     async def link_by_code(self, code: str, telegram_id: str) -> bool:
-        """
-        Привязать аккаунт по коду. Вызывает POST /api/bot/link/.
-        Эндпоинт пока не реализован на бэкенде — при появлении раскомментировать.
-        """
-        # TODO: когда бэкенд добавит POST /api/bot/link/
-        # payload = {"code": code.strip(), "telegram_id": str(telegram_id)}
-        # headers = {}
-        # if self.bot_secret:
-        #     headers["X-Bot-Secret"] = self.bot_secret
-        # async with (await self._session_get()).post(
-        #     f"{self.base}/bot/link/",
-        #     json=payload,
-        #     headers=headers,
-        # ) as resp:
-        #     if resp.status == 200:
-        #         return True
-        #     data = await resp.json() if resp.content_type == "application/json" else {}
-        #     raise SalykBotAPIError(
-        #         data.get("detail", data.get("code", "Ошибка привязки")),
-        #         status=resp.status,
-        #     )
-        raise SalykBotAPIError(
-            "Привязка по коду пока недоступна. Нужно добавить на бэкенде POST /api/bot/link/"
-        )
+        """Привязать аккаунт по коду. POST /api/telegram/bot/link/"""
+        payload = {"code": code.strip(), "telegram_id": str(telegram_id)}
+        async with (await self._session_get()).post(
+            f"{self.base}/telegram/bot/link/",
+            json=payload,
+            headers=self._bot_headers(),
+        ) as resp:
+            if resp.status == 200:
+                return True
+            data = await resp.json() if resp.content_type == "application/json" else {}
+            raise SalykBotAPIError(
+                data.get("detail", "Ошибка привязки"),
+                status=resp.status,
+            )
 
     async def get_token_by_telegram_id(self, telegram_id: str) -> tuple[str, Optional[str]]:
+        """Получить JWT по telegram_id. POST /api/telegram/bot/auth/"""
+        payload = {"telegram_id": str(telegram_id)}
+        async with (await self._session_get()).post(
+            f"{self.base}/telegram/bot/auth/",
+            json=payload,
+            headers=self._bot_headers(),
+        ) as resp:
+            if resp.status != 200:
+                data = await resp.json() if resp.content_type == "application/json" else {}
+                raise SalykBotAPIError(
+                    data.get("detail", "Аккаунт не привязан"),
+                    status=resp.status,
+                )
+            data = await resp.json()
+            return data["access"], data.get("refresh")
+
+    async def get_categories(self, access_token: str, category_type: Optional[str] = None) -> list[dict]:
         """
-        Получить access (и refresh) токен по telegram_id. Вызывает POST /api/bot/auth/.
-        Эндпоинт пока не реализован на бэкенде — при появлении раскомментировать.
+        GET /api/finance/categories/ — список категорий пользователя.
+        category_type: 'income' | 'expense' — фильтр по типу.
         """
-        # TODO: когда бэкенд добавит POST /api/bot/auth/
-        # payload = {"telegram_id": str(telegram_id)}
-        # headers = {}
-        # if self.bot_secret:
-        #     headers["X-Bot-Secret"] = self.bot_secret
-        # async with (await self._session_get()).post(
-        #     f"{self.base}/bot/auth/",
-        #     json=payload,
-        #     headers=headers,
-        # ) as resp:
-        #     if resp.status != 200:
-        #         data = await resp.json() if resp.content_type == "application/json" else {}
-        #         raise SalykBotAPIError(
-        #             data.get("detail", "Ошибка авторизации бота"),
-        #             status=resp.status,
-        #         )
-        #     data = await resp.json()
-        #     return data["access"], data.get("refresh")
-        raise SalykBotAPIError(
-            "Авторизация бота пока недоступна. Нужно добавить на бэкенде POST /api/bot/auth/"
-        )
+        params = {}
+        if category_type:
+            params["category_type"] = category_type
+        async with (await self._session_get()).get(
+            f"{self.base}/finance/categories/",
+            params=params or None,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+            },
+        ) as resp:
+            if resp.status != 200:
+                data = await resp.json() if resp.content_type == "application/json" else {}
+                raise SalykBotAPIError(
+                    data.get("detail", "Не удалось загрузить категории"),
+                    status=resp.status,
+                )
+            data = await resp.json()
+            items = data if isinstance(data, list) else data.get("results", data.get("data", []))
+            if category_type:
+                items = [c for c in items if c.get("category_type") == category_type]
+            return items
+
+    async def get_transactions(
+        self,
+        access_token: str,
+        limit: int = 20,
+        offset: int = 0,
+        transaction_type: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        GET /api/finance/transactions/ — список транзакций пользователя.
+        """
+        params = {"limit": limit, "offset": offset}
+        if transaction_type:
+            params["transaction_type"] = transaction_type
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        async with (await self._session_get()).get(
+            f"{self.base}/finance/transactions/",
+            params=params,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+            },
+        ) as resp:
+            if resp.status != 200:
+                data = await resp.json() if resp.content_type == "application/json" else {}
+                raise SalykBotAPIError(
+                    data.get("detail", "Не удалось загрузить транзакции"),
+                    status=resp.status,
+                )
+            data = await resp.json()
+            items = data if isinstance(data, list) else data.get("results", data.get("data", []))
+            return items
+
+    async def delete_transaction(self, access_token: str, transaction_id: int) -> None:
+        """DELETE /api/finance/transactions/:id/"""
+        async with (await self._session_get()).delete(
+            f"{self.base}/finance/transactions/{transaction_id}/",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+            },
+        ) as resp:
+            if resp.status not in (200, 204):
+                data = await resp.json() if resp.content_type == "application/json" else {}
+                raise SalykBotAPIError(
+                    data.get("detail", "Не удалось удалить транзакцию"),
+                    status=resp.status,
+                )
 
     async def create_transaction(
         self,
@@ -111,9 +173,10 @@ class SalykBotAPI:
         """
         if transaction_date is None:
             transaction_date = date.today()
+        amount_num = float(amount) if isinstance(amount, str) else amount
         payload = {
             "transaction_type": transaction_type,
-            "amount": amount,
+            "amount": amount_num,
             "transaction_date": transaction_date.isoformat(),
             "payment_method": payment_method,
             "is_business": is_business,
