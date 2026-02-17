@@ -30,7 +30,6 @@ class TimeSeriesAnalyticsView(APIView):
         preset = request.query_params.get('preset')
         transaction_type = request.query_params.get('transaction_type')
 
-        # Handle preset (week/month/year/all_time) or explicit dates
         if preset:
             date_from, date_to = get_preset_dates(preset)
             if date_from is None and preset != 'all_time':
@@ -45,6 +44,8 @@ class TimeSeriesAnalyticsView(APIView):
             date_to, error = parse_date_param(request.query_params.get('date_to'), 'date_to')
             if error:
                 return Response(error, status=400)
+            if not date_from and not date_to:
+                date_from, date_to = get_preset_dates('month')
 
         data = get_time_series_data(
             user=request.user,
@@ -73,7 +74,6 @@ class CategoryBreakdownAnalyticsView(APIView):
         preset = request.query_params.get('preset')
         transaction_type = request.query_params.get('transaction_type')
 
-        # Handle preset (week/month/year/all_time) or explicit dates
         if preset:
             date_from, date_to = get_preset_dates(preset)
             if date_from is None and preset != 'all_time':
@@ -88,6 +88,8 @@ class CategoryBreakdownAnalyticsView(APIView):
             date_to, error = parse_date_param(request.query_params.get('date_to'), 'date_to')
             if error:
                 return Response(error, status=400)
+            if not date_from and not date_to:
+                date_from, date_to = get_preset_dates('month')
 
         try:
             limit = int(request.query_params.get('limit', DEFAULT_CATEGORY_BREAKDOWN_LIMIT))

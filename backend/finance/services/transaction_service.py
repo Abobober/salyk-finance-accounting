@@ -2,7 +2,6 @@ from django.db import transaction
 from rest_framework import serializers
 
 from finance.models import Transaction
-from finance.services.dashboard_service import invalidate_dashboard_cache
 from finance.utils import update_instance_from_dict
 
 
@@ -39,9 +38,7 @@ class TransactionService:
     def create_transaction(user, validated_data):
         """Create a new transaction."""
         _validate_transaction_business_rules(validated_data, instance=None)
-        obj = Transaction.objects.create(user=user, **validated_data)
-        invalidate_dashboard_cache(user)
-        return obj
+        return Transaction.objects.create(user=user, **validated_data)
 
     @staticmethod
     @transaction.atomic
@@ -49,5 +46,4 @@ class TransactionService:
         """Update an existing transaction."""
         _validate_transaction_business_rules(validated_data, instance=instance)
         update_instance_from_dict(instance, validated_data)
-        invalidate_dashboard_cache(instance.user)
         return instance

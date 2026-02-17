@@ -1,19 +1,9 @@
-"""Dashboard service: aggregates via annotate, cached per user."""
+"""Dashboard service: aggregates via annotate."""
 
-from django.core.cache import cache
 from django.db.models import Q, Sum
 
 from finance.constants import DEFAULT_RECENT_TRANSACTIONS_LIMIT, ZERO
 from finance.models import Transaction
-
-
-def dashboard_cache_key(user_id):
-    return f"dashboard:{user_id}"
-
-
-def invalidate_dashboard_cache(user):
-    """Call after create/update transaction so dashboard cache is refreshed."""
-    cache.delete(dashboard_cache_key(user.id))
 
 
 def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT):

@@ -125,12 +125,11 @@ class Transaction(models.Model):
         verbose_name_plural = 'Транзакции'
         ordering = ['-transaction_date', '-created_at']
         indexes = [
-        models.Index(fields=["user"]),
-        models.Index(fields=["transaction_date"]),
-        models.Index(fields=["created_at"]),
-        models.Index(fields=["user", "transaction_date"]),
-    ]
-
+            models.Index(fields=["user"]),
+            models.Index(fields=["transaction_date"]),
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["user", "transaction_date"]),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(amount__gte=MIN_TRANSACTION_AMOUNT),

@@ -7,6 +7,7 @@ from .analytics import (
 )
 from .category import CategoryViewSet
 from .dashboard import DashboardView
+from .tax_report import TaxReportView
 from .transaction import TransactionViewSet
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     'TimeSeriesAnalyticsView',
     'CategoryBreakdownAnalyticsView',
     'PeriodComparisonAnalyticsView',
+    'TaxReportView',
 ]

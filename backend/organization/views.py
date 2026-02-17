@@ -1,11 +1,16 @@
-from django.shortcuts import render
-from rest_framework import viewsets, generics, status
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from organization.models import OrganizationActivity, OrganizationProfile
-from organization.serializers import OrganizationProfileSerializer, OrganizationActivitySerializer, OnboardingFinalizeSerializer, OrganizationStatusSerializer
+from organization.serializers import (
+    OrganizationProfileSerializer,
+    OrganizationActivitySerializer,
+    OnboardingFinalizeSerializer,
+    OrganizationStatusSerializer,
+    TaxPeriodResponseSerializer,
+)
 
 class OrganizationProfileView(generics.RetrieveUpdateAPIView):
     """
@@ -45,6 +50,8 @@ class OrganizationActivityDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return OrganizationActivity.objects.none()
         return OrganizationActivity.objects.filter(profile=self.request.user.organization)
     
 
@@ -67,3 +74,37 @@ class OrganizationStatusView(APIView):
             "is_completed": profile.onboarding_status == OrganizationProfile.OnboardingStatus.COMPLETED
         }
         return Response(data)
+
+
+class TaxPeriodView(APIView):
+    """Get current tax period dates based on organization's tax period settings."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = TaxPeriodResponseSerializer
+
+    def get(self, request):
+        profile = request.user.organization
+        
+        if not profile.tax_period_type:
+            return Response({
+                'error': 'Tax period is not configured for this organization.'
+            }, status=400)
+        
+        try:
+            from organization.tax_period_utils import get_current_tax_period_start_end, get_next_tax_period_start
+            
+            period_start, period_end = get_current_tax_period_start_end(profile)
+            next_period_start = get_next_tax_period_start(profile)
+            
+            return Response({
+                'tax_period_type': profile.tax_period_type,
+                'tax_period_preset': profile.tax_period_preset,
+                'tax_period_custom_day': profile.tax_period_custom_day,
+                'current_period': {
+                    'start': period_start.isoformat(),
+                    'end': period_end.isoformat(),
+                },
+                'next_period_start': next_period_start.isoformat(),
+            })
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)

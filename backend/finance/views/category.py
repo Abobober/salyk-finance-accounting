@@ -6,7 +6,6 @@ from rest_framework.permissions import IsAuthenticated
 from finance.models import Category
 from finance.permissions import IsCategoryOwnerOrSystemReadOnly, IsOnboardingCompleted
 from finance.serializers import CategorySerializer
-from finance.services.category_service import CategoryService
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -21,15 +20,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return Category.objects.filter(user=self.request.user) | Category.objects.filter(is_system=True)
 
     def perform_create(self, serializer):
-        instance = CategoryService.create_category(
-            user=self.request.user,
-            validated_data=serializer.validated_data
-        )
-        serializer.instance = instance
+        serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
-        instance = CategoryService.update_category(
-            instance=serializer.instance,
-            validated_data=serializer.validated_data
-        )
-        serializer.instance = instance
+        serializer.save()
