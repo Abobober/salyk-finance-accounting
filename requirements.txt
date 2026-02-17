@@ -1,4 +1,4 @@
-Django==5.2.11
+Django==6.0.1
 djangorestframework==3.16.1
 psycopg2-binary==2.9.11
 djangorestframework-simplejwt==5.5.1
@@ -8,6 +8,7 @@ openpyxl==3.1.5
 django-extensions==4.1
 django-filter==25.2
 requests==2.32.5
-reportlab
+reportlab=4.4.10
 django-environ==0.12.1
-pypdf
+pypdf=6.7.0
+
