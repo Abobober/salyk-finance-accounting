@@ -1,3 +1,5 @@
+# python manage.py setup_demo_data --user admin@example.com --transactions 100
+
 """
 Management command для создания демо-данных: категории и транзакции.
 Использование: python manage.py setup_demo_data [--user USERNAME] [--transactions N]
