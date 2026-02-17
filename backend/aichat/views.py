@@ -1,18 +1,16 @@
 import os
 
 import requests
-from organization.models import OrganizationProfile
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny
-import requests
-import os
-from .serializers import ChatSessionSerializer
-from .models import ChatSession
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+
+from organization.models import OrganizationProfile
+
+from .models import ChatSession
+from .serializers import ChatSessionSerializer
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -101,7 +99,12 @@ class OpenRouterView(GenericAPIView):
             }
         ]
 
-        messages = [{"role": "system", "content": system_prompt}]
+        # Добавляем контекст пользователя и организации в system prompt
+        user_context = self._build_user_org_context(request)
+        if user_context:
+            base_content = messages[0]["content"]
+            messages[0]["content"] = base_content + "\n\nКонтекст: " + "; ".join(user_context)
+
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
