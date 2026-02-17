@@ -28,6 +28,8 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+REDIS_URL = env('REDIS_URL', default='')  # Stage 4: e.g. redis://127.0.0.1:6379/1
+DASHBOARD_CACHE_TTL = 45  # Stage 4: seconds (30–60)
 
 
 SECURE_BROWSER_XSS_FILTER = True
@@ -120,6 +122,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'core.idempotency.IdempotencyMiddleware',  # Stage 2: stub; TODO: Idempotency-Key support
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -195,6 +198,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Stage 4: cache for dashboard (Redis if REDIS_URL set, else LocMem)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {},
+    }
+} if REDIS_URL else {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'dashboard',
+    }
+}
 
 # Custom User Model
 # https://docs.djangoproject.com/en/6.0/topics/auth/customizing/#substituting-a-custom-user-model

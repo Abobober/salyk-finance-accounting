@@ -1,6 +1,9 @@
+from decimal import Decimal
+
 from rest_framework import serializers
-from .models import Category, Transaction
 from django.db.models import Q
+
+from .models import Category, Transaction
 from activities.models import ActivityCode
 
 
@@ -41,23 +44,17 @@ class TransactionSerializer(serializers.ModelSerializer):
         else:
             self.fields['category'].queryset = Category.objects.filter(is_system=True)
 
+    def validate_amount(self, value):
+        """Stage 1.1: no negative or zero amounts; use Decimal."""
+        if value is not None:
+            if not isinstance(value, Decimal):
+                value = Decimal(str(value))
+            if value <= 0:
+                raise serializers.ValidationError("Сумма должна быть положительной.")
+            if value > Decimal("1000000000"):
+                raise serializers.ValidationError("Сумма превышает допустимый предел.")
+        return value
+
     def validate(self, attrs):
-        category = attrs.get('category')
-        t_type = attrs.get('transaction_type')
-
-        if not t_type and self.instance:
-            t_type = self.instance.transaction_type
-        if not category and self.instance:
-            category = self.instance.category
-
-        if category and t_type and category.category_type != t_type:
-            raise serializers.ValidationError({
-                'category': f"Тип категории ({category.get_category_type_display()}) не совпадает с типом операции ({t_type})"
-            })
-
-        if attrs.get('is_business') and not attrs.get('activity_code'):
-            raise serializers.ValidationError({
-                'activity_code': "Для бизнес-транзакции необходимо указать вид деятельности."
-            })
-
+        # Stage 2: business rules (category type match, activity_code for business) live in TransactionService
         return attrs
