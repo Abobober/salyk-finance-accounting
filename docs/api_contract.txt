@@ -1,0 +1,519 @@
+================================================================================
+                    FINANCE & ACCOUNTING API CONTRACT
+                         For Frontend Developers
+================================================================================
+
+BASE URL: /api/
+CONTENT-TYPE: application/json
+AUTHENTICATION: JWT Bearer token (except where noted)
+
+--------------------------------------------------------------------------------
+AUTHENTICATION
+--------------------------------------------------------------------------------
+All protected endpoints require header:
+  Authorization: Bearer <access_token>
+
+Most endpoints also require onboarding to be completed. If not, 403 "Onboarding not completed".
+Excluded from onboarding check: /api/users/*, /api/organization/profile/, 
+/api/organization/status/, /api/organization/activities/*, /api/activities/*
+
+--------------------------------------------------------------------------------
+1. AUTH (No auth required for login/register)
+--------------------------------------------------------------------------------
+
+POST /api/token/
+  Login - obtain access and refresh tokens
+  Body: { "email": "string", "password": "string" }
+  Response 200: { "access": "jwt_string", "refresh": "jwt_string" }
+  Errors: 401 invalid credentials
+
+POST /api/token/refresh/
+  Refresh access token
+  Body: { "refresh": "refresh_token_string" }
+  Response 200: { "access": "jwt_string", "refresh": "jwt_string" }
+  Errors: 401 invalid/expired refresh token
+
+--------------------------------------------------------------------------------
+2. USERS
+--------------------------------------------------------------------------------
+
+POST /api/users/register/
+  Auth: None
+  Body: {
+    "email": "string" (required),
+    "password": "string" (required),
+    "password2": "string" (required, must match password),
+    "first_name": "string" (optional),
+    "last_name": "string" (optional)
+  }
+  Response 201: { "message": "Пользователь успешно зарегистрирован. Теперь вы можете войти." }
+  Errors: 400 validation (passwords mismatch, weak password, etc.)
+
+GET /api/users/profile/
+PUT /api/users/profile/
+PATCH /api/users/profile/
+  Auth: Required
+  GET Response 200: {
+    "id": number,
+    "email": "string",
+    "first_name": "string",
+    "last_name": "string",
+    "telegram_id": "string | null",
+    "date_joined": "datetime ISO8601"
+  }
+  PUT/PATCH Body: { "first_name"?, "last_name"?, "email"? }
+  Response 200: updated profile object
+
+GET /api/users/me/
+  Auth: Required
+  Response 200: same as profile (current user)
+
+POST /api/users/logout/
+  Auth: Required
+  Body: { "refresh": "refresh_token_string" }
+  Response 204: No content
+  Errors: 400 missing/invalid token, 403 token belongs to another user
+
+--------------------------------------------------------------------------------
+3. ORGANIZATION (Onboarding flow)
+--------------------------------------------------------------------------------
+
+GET /api/organization/profile/
+PUT /api/organization/profile/
+PATCH /api/organization/profile/
+  Auth: Required (no onboarding check)
+  GET Response 200: {
+    "org_type": "ie" | "llc" | null,
+    "tax_regime": "single" | "general" | null,
+    "onboarding_status": "not_started" | "org_type" | "tax_regime" | "activities" | "completed",
+    "tax_period_type": "preset" | "custom" | null,
+    "tax_period_type_display": "string",
+    "tax_period_preset": "monthly" | "quarterly" | "yearly" | null,
+    "tax_period_preset_display": "string",
+    "tax_period_custom_day": number 1-31 | null
+  }
+  PUT/PATCH Body: {
+    "org_type"?: "ie" | "llc",
+    "tax_regime"?: "single" | "general",
+    "tax_period_type"?: "preset" | "custom",
+    "tax_period_preset"?: "monthly" | "quarterly" | "yearly",
+    "tax_period_custom_day"?: number 1-31
+  }
+  Validation: if tax_period_type=preset then tax_period_preset required;
+               if tax_period_type=custom then tax_period_custom_day required (1-31)
+
+GET /api/organization/status/
+  Auth: Required (no onboarding check)
+  Response 200: {
+    "onboarding_status": "string",
+    "is_completed": boolean
+  }
+
+PATCH /api/organization/finalize/
+  Auth: Required (no onboarding check)
+  Body: {}
+  Finalizes onboarding. Requires: org_type, tax_regime, at least one activity, one primary activity.
+  Response 200: updated profile
+  Errors: 400 if validation fails
+
+GET /api/organization/tax-period/
+  Auth: Required
+  Response 200: {
+    "tax_period_type": "string",
+    "tax_period_preset": "string | null",
+    "tax_period_custom_day": number | null,
+    "current_period": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" },
+    "next_period_start": "YYYY-MM-DD"
+  }
+  Errors: 400 if tax period not configured
+
+GET /api/organization/activities/
+POST /api/organization/activities/
+  Auth: Required (no onboarding check)
+  GET Response 200: [{
+    "id": number,
+    "activity": number (ActivityCode id),
+    "activity_name": "string",
+    "cash_tax_rate": "decimal string",
+    "non_cash_tax_rate": "decimal string",
+    "is_primary": boolean
+  }]
+  POST Body: {
+    "activity": number (ActivityCode id),
+    "cash_tax_rate": "decimal string",
+    "non_cash_tax_rate": "decimal string",
+    "is_primary": boolean
+  }
+
+GET /api/organization/activities/<id>/
+PUT /api/organization/activities/<id>/
+PATCH /api/organization/activities/<id>/
+DELETE /api/organization/activities/<id>/
+  Auth: Required (no onboarding check)
+  Same response/body structure as list/create
+
+--------------------------------------------------------------------------------
+4. ACTIVITIES (Reference data - activity codes)
+--------------------------------------------------------------------------------
+
+GET /api/activities/
+  Auth: Required (no onboarding check)
+  Query: ?search=string (searches code, name)
+  Response 200: Paginated list [{
+    "id": number,
+    "code": "string",
+    "section": "string",
+    "name": "string"
+  }]
+  Pagination: limit, offset (default limit=20)
+
+--------------------------------------------------------------------------------
+5. FINANCE - Categories
+--------------------------------------------------------------------------------
+
+GET /api/finance/categories/
+POST /api/finance/categories/
+  Auth: Required + Onboarding completed
+  GET Response 200: [{
+    "id": number,
+    "name": "string",
+    "category_type": "income" | "expense",
+    "category_type_display": "string",
+    "is_system": boolean,
+    "created_at": "datetime ISO8601"
+  }]
+  POST Body: {
+    "name": "string",
+    "category_type": "income" | "expense"
+  }
+  Note: System categories (is_system=true) are read-only
+
+GET /api/finance/categories/<id>/
+PUT /api/finance/categories/<id>/
+PATCH /api/finance/categories/<id>/
+DELETE /api/finance/categories/<id>/
+  Auth: Required + Onboarding completed
+  Same structure as list/create. Cannot modify system categories.
+
+--------------------------------------------------------------------------------
+6. FINANCE - Transactions
+--------------------------------------------------------------------------------
+
+GET /api/finance/transactions/
+  Auth: Required + Onboarding completed
+  Query params (all optional):
+    - transaction_type: "income" | "expense"
+    - category: number (category id)
+    - is_business: boolean
+    - payment_method: "cash" | "non_cash"
+    - is_taxable: boolean
+    - activity_code: number (ActivityCode id)
+    - date_from: YYYY-MM-DD
+    - date_to: YYYY-MM-DD
+    - ordering: transaction_date, amount, created_at (prefix - for desc)
+    - limit, offset (pagination)
+  Response 200: Paginated [{
+    "id": number,
+    "amount": "decimal string",
+    "transaction_type": "income" | "expense",
+    "category": number | null,
+    "category_name": "string | null",
+    "description": "string",
+    "transaction_date": "YYYY-MM-DD",
+    "created_at": "datetime ISO8601",
+    "payment_method": "cash" | "non_cash",
+    "is_business": boolean,
+    "is_taxable": boolean,
+    "activity_code": number | null,
+    "activity_code_name": "string | null",
+    "cash_tax_rate": "decimal string | null",
+    "non_cash_tax_rate": "decimal string | null"
+  }]
+
+POST /api/finance/transactions/
+  Auth: Required + Onboarding completed
+  Body: {
+    "amount": number (required, > 0),
+    "transaction_type": "income" | "expense" (required),
+    "category": number | null,
+    "description": "string" (max 100 chars),
+    "transaction_date": "YYYY-MM-DD" (required),
+    "payment_method": "cash" | "non_cash" (required),
+    "is_business": boolean (default true),
+    "is_taxable": boolean (default true),
+    "activity_code": number | null (required if is_business=true)
+  }
+  Validation: category type must match transaction_type; business transactions need activity_code
+  Response 201: created transaction object
+
+GET /api/finance/transactions/<id>/
+PUT /api/finance/transactions/<id>/
+PATCH /api/finance/transactions/<id>/
+DELETE /api/finance/transactions/<id>/
+  Auth: Required + Onboarding completed
+  Same structure as list/create
+
+--------------------------------------------------------------------------------
+7. FINANCE - Dashboard
+--------------------------------------------------------------------------------
+
+GET /api/finance/dashboard/
+  Auth: Required + Onboarding completed
+  Response 200: {
+    "totals": {
+      "total_income": "decimal string",
+      "total_expense": "decimal string"
+    },
+    "by_category": [{
+      "category_name": "string",
+      "category_type": "income" | "expense",
+      "total": "decimal string"
+    }],
+    "recent_transactions": [{
+      "id": number,
+      "amount": "decimal string",
+      "transaction_type": "income" | "expense",
+      "category_name": "string | null",
+      "description": "string",
+      "transaction_date": "YYYY-MM-DD",
+      "created_at": "datetime ISO8601",
+      "payment_method": "cash" | "non_cash"
+    }]
+  }
+
+--------------------------------------------------------------------------------
+8. FINANCE - Analytics
+--------------------------------------------------------------------------------
+
+GET /api/finance/analytics/time-series/
+  Auth: Required + Onboarding completed
+  Query params:
+    - period: "daily" | "monthly" | "yearly" (default: monthly)
+    - preset: "week" | "month" | "year" | "all_time" (alternative to date_from/date_to)
+    - date_from: YYYY-MM-DD (use with date_to if no preset)
+    - date_to: YYYY-MM-DD
+    - transaction_type: "income" | "expense" (optional, both if omitted)
+  If no preset and no dates: defaults to last month
+  Response 200: {
+    "period": "string",
+    "preset": "string | null",
+    "date_from": "string | null",
+    "date_to": "string | null",
+    "data": [{
+      "period": "string",
+      "income": "decimal string",
+      "expense": "decimal string",
+      "net": "decimal string"
+    }]
+  }
+
+GET /api/finance/analytics/category-breakdown/
+  Auth: Required + Onboarding completed
+  Query params:
+    - preset: "week" | "month" | "year" | "all_time"
+    - date_from, date_to: YYYY-MM-DD
+    - transaction_type: "income" | "expense"
+    - limit: number (default 10, max categories returned)
+  Response 200: {
+    "preset": "string | null",
+    "date_from": "string | null",
+    "date_to": "string | null",
+    "transaction_type": "string | null",
+    "data": [{
+      "category_name": "string",
+      "category_type": "income" | "expense",
+      "total": "decimal string",
+      "count": number
+    }]
+  }
+
+GET /api/finance/analytics/period-comparison/
+  Auth: Required + Onboarding completed
+  Query params (all required):
+    - p1_from: YYYY-MM-DD
+    - p1_to: YYYY-MM-DD
+    - p2_from: YYYY-MM-DD
+    - p2_to: YYYY-MM-DD
+  Response 200: {
+    "period1": {
+      "income": "decimal string",
+      "expense": "decimal string",
+      "net": "decimal string",
+      "transaction_count": number,
+      "date_from": "YYYY-MM-DD",
+      "date_to": "YYYY-MM-DD"
+    },
+    "period2": { ... same structure },
+    "change": {
+      "income_change": "decimal string",
+      "expense_change": "decimal string",
+      "net_change": "decimal string",
+      "income_change_pct": "decimal string",
+      "expense_change_pct": "decimal string",
+      "net_change_pct": "decimal string"
+    }
+  }
+
+--------------------------------------------------------------------------------
+9. FINANCE - Tax Report
+--------------------------------------------------------------------------------
+
+GET /api/finance/tax-report/
+  Auth: Required + Onboarding completed
+  Query params (choose one):
+    - use_org_tax_period: "true" | "1" | "yes" - use org's current tax period
+    - preset: "week" | "month" | "year" | "all_time"
+    - date_from, date_to: YYYY-MM-DD (both required if used)
+  If none provided: defaults to last month
+  Response 200: {
+    "period": { "date_from": "YYYY-MM-DD", "date_to": "YYYY-MM-DD" },
+    "totals": {
+      "total_income": "decimal string",
+      "total_expense": "decimal string",
+      "net": "decimal string"
+    },
+    "taxable": { "income": "decimal string", "expense": "decimal string" },
+    "non_taxable": { "income": "decimal string", "expense": "decimal string" },
+    "by_payment_method": [{
+      "payment_method": "cash" | "non_cash",
+      "payment_method_display": "string",
+      "income": "decimal string",
+      "expense": "decimal string",
+      "net": "decimal string"
+    }],
+    "by_activity": [{
+      "activity_code_id": number,
+      "activity_name": "string",
+      "income": "decimal string",
+      "expense": "decimal string",
+      "net": "decimal string"
+    }]
+  }
+
+--------------------------------------------------------------------------------
+10. AI CHAT
+--------------------------------------------------------------------------------
+
+POST /api/aichat/consult/
+  Auth: Required + Onboarding completed
+  Throttle: 5 requests/minute
+  Body: {
+    "message": "string",
+    "session_id": "string" (required, for conversation continuity)
+  }
+  Response 200: {
+    "assistant": "string",
+    "session_id": "string"
+  }
+  Errors: 500 OpenRouter error, 502 invalid response
+
+--------------------------------------------------------------------------------
+11. TELEGRAM
+--------------------------------------------------------------------------------
+
+GET /api/telegram/link-token/
+  Auth: Required
+  Response 200: { "link": "https://t.me/salyk_bot?start=<uuid>" }
+  Use this link to bind Telegram account to user
+
+POST /api/telegram/bot/link/
+  Auth: IsTelegramBot (special header, used by bot only)
+  Body: { "code": "uuid string", "telegram_id": "string" }
+  Response 200: { "status": "success", "email": "string" }
+  Errors: 400 invalid/expired code
+
+POST /api/telegram/bot/auth/
+  Auth: IsTelegramBot (used by bot only)
+  Body: { "telegram_id": "string" }
+  Response 200: { "access": "jwt", "refresh": "jwt" }
+  Errors: 404 user not found
+
+--------------------------------------------------------------------------------
+COMMON ERROR RESPONSES
+--------------------------------------------------------------------------------
+400 Bad Request: { "field_name": ["error message"] } or { "error": "message" }
+401 Unauthorized: { "detail": "..." } - invalid/missing token
+403 Forbidden: { "detail": "Onboarding not completed" } or permission denied
+404 Not Found: { "detail": "Not found." }
+500 Server Error: { "error": "message", "details": "..." }
+
+--------------------------------------------------------------------------------
+PAGINATION (LimitOffsetPagination)
+--------------------------------------------------------------------------------
+Query params: ?limit=20&offset=0 (default limit=20)
+Response format: {
+  "count": number,
+  "next": "url | null",
+  "previous": "url | null",
+  "results": [ ... ]
+}
+Applies to: /api/finance/transactions/, /api/finance/categories/, 
+/api/organization/activities/, /api/activities/
+
+--------------------------------------------------------------------------------
+SWAGGER / OPENAPI
+--------------------------------------------------------------------------------
+Interactive docs: GET /api/docs/
+Schema: GET /api/schema/
+
+================================================================================
+                    FRONTEND DEVELOPMENT GUIDELINES
+                      (from security_roadmap.txt)
+================================================================================
+
+--------------------------------------------------------------------------------
+RECOMMENDED STACK & ARCHITECTURE
+--------------------------------------------------------------------------------
+- React + TypeScript
+- Project structure:
+    api/        - API client, axios instance, endpoints
+    features/   - Feature-based modules (auth, transactions, dashboard, etc.)
+    components/ - Reusable UI components
+    hooks/      - Custom hooks (useAuth, useTransactions, etc.)
+    pages/      - Page components / routes
+
+--------------------------------------------------------------------------------
+DATA LAYER (TanStack Query)
+--------------------------------------------------------------------------------
+- Use TanStack Query (React Query) for server state
+- staleTime = 30s (data considered fresh for 30 seconds)
+- refetchOnWindowFocus = false (avoid unnecessary refetches)
+- invalidateQueries after mutations (create/update/delete) to keep UI in sync
+  Example: after creating a transaction, invalidate dashboard + transactions list
+
+--------------------------------------------------------------------------------
+AUTHENTICATION FLOW (Axios)
+--------------------------------------------------------------------------------
+- Create Axios instance with base URL and default headers
+- Interceptor on 401 response:
+    1. Call POST /api/token/refresh/ with refresh token
+    2. Store new access token
+    3. Retry original request with new token
+- Access token: store in memory (state/context), add to Authorization header
+- Refresh token: store in HttpOnly cookie (more secure) or memory
+- On logout: call POST /api/users/logout/ to blacklist refresh token, then clear local state
+
+--------------------------------------------------------------------------------
+ONBOARDING FLOW
+--------------------------------------------------------------------------------
+- Check GET /api/organization/status/ on app load (if user is authenticated)
+- If is_completed=false: redirect to onboarding wizard
+- Onboarding steps follow onboarding_status: org_type → tax_regime → activities → finalize
+- After PATCH /api/organization/finalize/: redirect to main app (dashboard)
+
+--------------------------------------------------------------------------------
+DASHBOARD DATA
+--------------------------------------------------------------------------------
+- GET /api/finance/dashboard/ returns all dashboard data in one request:
+  totals, by_category, recent_transactions
+- No need for multiple requests; use this single endpoint for the main dashboard view
+
+--------------------------------------------------------------------------------
+DEPENDENCIES (Roadmap)
+--------------------------------------------------------------------------------
+Frontend foundation (Stage 5) depends on Stage 4 (Dashboard) being ready.
+Backend provides: /api/finance/dashboard/ with aggregated data.
+
+================================================================================
+                              END OF CONTRACT
+================================================================================

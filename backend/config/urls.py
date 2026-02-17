@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -38,10 +40,17 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
+    path('api/telegram/', include('telegram_bot.urls')),
+
     path('api/users/', include('users.urls')),
     path('api/organization/', include('organization.urls')),
     path('api/finance/', include('finance.urls')),
     path('api/', include('activities.urls')),
     path("api/aichat/", include("aichat.urls")),
+    path("api/tax/", include("tax_reports.urls")),
+
 
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
