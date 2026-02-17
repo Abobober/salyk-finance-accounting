@@ -29,6 +29,8 @@ DEBUG = env('DEBUG')
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 REDIS_URL = env('REDIS_URL', default='')  # Stage 4: e.g. redis://127.0.0.1:6379/1
+BOT_API_SECRET = env('BOT_API_SECRET')
+BOT_TOKEN = env('BOT_TOKEN')
 DASHBOARD_CACHE_TTL = 45  # Stage 4: seconds (30–60)
 
 

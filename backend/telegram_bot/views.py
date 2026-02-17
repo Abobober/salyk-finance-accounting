@@ -25,7 +25,7 @@ class GetTelegramLinkView(APIView):
             defaults={'token': uuid.uuid4(), 'created_at': timezone.now()}
         )
         
-        bot_username = "salyk_bot"
+        bot_username = "finance_iuca_bot"
         link = f"https://t.me/{bot_username}?start={binding.token}"
         
         return Response({"link": link})
