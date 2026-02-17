@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     'finance',
     'organization',
     'activities',
+    'aichat',
+    'tax_reports',
 ]
 
 # Настройка REST Framework
@@ -196,6 +198,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Custom User Model
 # https://docs.djangoproject.com/en/6.0/topics/auth/customizing/#substituting-a-custom-user-model
