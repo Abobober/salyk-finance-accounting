@@ -10,12 +10,18 @@ import { CategoriesPage } from '@/pages/CategoriesPage'
 import { TransactionsPage } from '@/pages/TransactionsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AiChatPage } from '@/pages/AiChatPage'
+import { TaxReportsPage } from '@/pages/TaxReportsPage'
 
 function App() {
   return (
     <AuthProvider>
       <OnboardingProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -24,6 +30,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/transactions" element={<TransactionsPage />} />
+              <Route path="/reports" element={<TaxReportsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/aichat" element={<AiChatPage />} />
             </Route>
