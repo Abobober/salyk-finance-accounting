@@ -27,6 +27,7 @@ function App() {
             <Route element={<MainLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/tax-reports" element={<TaxReportsPage />} />
               <Route path="/aichat" element={<AiChatPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

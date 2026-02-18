@@ -29,8 +29,8 @@ DEBUG = env('DEBUG')
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 REDIS_URL = env('REDIS_URL', default='')  # Stage 4: e.g. redis://127.0.0.1:6379/1
-BOT_API_SECRET = env('BOT_API_SECRET')
-BOT_TOKEN = env('BOT_TOKEN')
+BOT_API_SECRET = env('BOT_API_SECRET', default='')  # Секрет для аутентификации Telegram-бота (X-Bot-Secret)
+BOT_TOKEN = env('BOT_TOKEN', default='')
 DASHBOARD_CACHE_TTL = 45  # Stage 4: seconds (30–60)
 
 
@@ -152,17 +152,26 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# НАСТРОЙКА БАЗЫ ДАННЫХ - PostgreSQL
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+# НАСТРОЙКА БАЗЫ ДАННЫХ
+# USE_SQLITE=1 в .env — для локальной разработки без PostgreSQL
+if os.getenv('USE_SQLITE', '').lower() in ('1', 'true', 'yes'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'finance_accounting_db'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
 
 
 # Password validation

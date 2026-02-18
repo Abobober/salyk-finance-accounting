@@ -255,13 +255,15 @@ export function ProfilePage() {
                         <button type="button" className="btn-sm" onClick={() => handleStartEdit(a)}>
                           Изменить
                         </button>
-                        <button
-                          type="button"
-                          className="btn-sm danger"
-                          onClick={() => handleRemoveActivity(a.id)}
-                        >
-                          Удалить
-                        </button>
+                        {!a.is_primary && (
+                          <button
+                            type="button"
+                            className="btn-sm danger"
+                            onClick={() => handleRemoveActivity(a.id)}
+                          >
+                            Удалить
+                          </button>
+                        )}
                       </>
                     )}
                   </td>

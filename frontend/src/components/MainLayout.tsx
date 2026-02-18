@@ -35,6 +35,7 @@ export function MainLayout() {
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.email
   const navItems = [
     { path: '/', label: 'Дэшборд' },
+    { path: '/tax-reports', label: 'Отчеты' },
     { path: '/profile', label: 'Профиль' },
     { path: '/aichat', label: 'AI-консультант' },
   ]

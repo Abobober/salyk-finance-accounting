@@ -289,6 +289,13 @@ export function DashboardPage() {
 
         <aside className="dashboard-sidebar">
           <div className="main-card">
+            <h2 className="main-card-title">Налоговые отчёты</h2>
+            <p className="main-card-desc">Формирование единого налогового отчёта по кварталам</p>
+            <Link to="/tax-reports" className="btn-sm" style={{ display: 'inline-block', marginTop: 8 }}>
+              Открыть отчёты
+            </Link>
+          </div>
+          <div className="main-card">
             <h2 className="main-card-title">AI-консультант</h2>
             <p className="main-card-desc">Вопросы по налогам и отчётности</p>
             <Link to="/aichat" className="btn-sm" style={{ display: 'inline-block', marginTop: 8 }}>
