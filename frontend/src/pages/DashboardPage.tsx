@@ -173,13 +173,13 @@ export function DashboardPage() {
                       outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     >
                       {categoryData.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: number) => `${v.toFixed(2)} сом`} />
+                    <Tooltip formatter={(v) => `${Number(v ?? 0).toFixed(2)} сом`} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -192,7 +192,7 @@ export function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis dataKey="period" stroke="var(--color-text-muted)" fontSize={12} />
                     <YAxis stroke="var(--color-text-muted)" fontSize={12} tickFormatter={(v) => `${v}`} domain={[0, 'auto']} />
-                    <Tooltip formatter={(v: number) => [`${v.toFixed(2)} сом`, '']} />
+                    <Tooltip formatter={(v) => [`${Number(v ?? 0).toFixed(2)} сом`, '']} />
                     <Legend />
                     <Line type="monotone" dataKey="income" name="Доходы" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} connectNulls />
                     <Line type="monotone" dataKey="expense" name="Расходы" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} connectNulls />
@@ -202,7 +202,7 @@ export function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis dataKey="period" stroke="var(--color-text-muted)" fontSize={12} />
                     <YAxis stroke="var(--color-text-muted)" fontSize={12} tickFormatter={(v) => `${v}`} domain={[0, 'auto']} />
-                    <Tooltip formatter={(v: number) => [`${v.toFixed(2)} сом`, '']} />
+                    <Tooltip formatter={(v) => [`${Number(v ?? 0).toFixed(2)} сом`, '']} />
                     <Legend />
                     <Bar dataKey="income" name="Доходы" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name="Расходы" fill="#ef4444" radius={[4, 4, 0, 0]} />
