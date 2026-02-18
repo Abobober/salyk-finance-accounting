@@ -36,6 +36,7 @@ export function MainLayout() {
   const navItems = [
     { path: '/', label: 'Дэшборд' },
     { path: '/tax-reports', label: 'Отчеты' },
+    { path: '/categories', label: 'Категории' },
     { path: '/profile', label: 'Профиль' },
     { path: '/aichat', label: 'AI-консультант' },
   ]

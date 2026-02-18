@@ -23,7 +23,9 @@ import {
   type Transaction,
   type TimeSeriesPoint,
   type CategoryBreakdownItem,
+  type TransactionsListResponse,
 } from '@/api/finance'
+import { listOrganizationActivities, type OrganizationActivity } from '@/api/organization'
 import { Modal } from '@/components/Modal'
 import { AddTransactionModal } from '@/components/AddTransactionModal'
 import { TransactionDetailsModal } from '@/components/TransactionDetailsModal'
@@ -48,17 +50,33 @@ export function DashboardPage() {
     date_to: '',
     transaction_type: '',
     category: '',
+    activity_code: '',
+    search: '',
+    ordering: '-transaction_date',
   })
+  const [pagination, setPagination] = useState({ limit: 20, offset: 0, count: 0 })
+  const [orgActivities, setOrgActivities] = useState<OrganizationActivity[]>([])
 
-  const loadTransactions = () => {
+  const loadTransactions = (offsetOverride?: number) => {
     setLoading(true)
-    const params: Record<string, string> = {}
+    const offset = offsetOverride !== undefined ? offsetOverride : pagination.offset
+    const params: Record<string, string | number> = {
+      limit: pagination.limit,
+      offset,
+    }
     if (filters.date_from) params.date_from = filters.date_from
     if (filters.date_to) params.date_to = filters.date_to
     if (filters.transaction_type) params.transaction_type = filters.transaction_type
     if (filters.category) params.category = filters.category
+    if (filters.activity_code) params.activity_code = filters.activity_code
+    if (filters.search) params.search = filters.search
+    if (filters.ordering) params.ordering = filters.ordering
     listTransactions(params)
-      .then(setTransactions)
+      .then((r) => {
+        const data = Array.isArray(r) ? { results: r, count: r.length } : (r as TransactionsListResponse)
+        setTransactions(data.results)
+        setPagination((p) => ({ ...p, count: data.count, offset }))
+      })
       .finally(() => setLoading(false))
     loadDashboard()
   }
@@ -101,8 +119,20 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    loadTransactions()
-  }, [filters.date_from, filters.date_to, filters.transaction_type, filters.category])
+    listOrganizationActivities().then((a) => setOrgActivities(Array.isArray(a) ? a : []))
+  }, [])
+
+  useEffect(() => {
+    loadTransactions(0)
+  }, [
+    filters.date_from,
+    filters.date_to,
+    filters.transaction_type,
+    filters.category,
+    filters.activity_code,
+    filters.search,
+    filters.ordering,
+  ])
 
   useEffect(() => {
     loadDashboard()
@@ -245,6 +275,47 @@ export function DashboardPage() {
                   <option value="expense">Расход</option>
                 </select>
               </div>
+              <div className="login-field">
+                <label>Вид деятельности</label>
+                <select
+                  className="select-field"
+                  value={filters.activity_code}
+                  onChange={(e) => setFilters((p) => ({ ...p, activity_code: e.target.value }))}
+                >
+                  <option value="">Все</option>
+                  {orgActivities.map((a) => (
+                    <option key={a.id} value={a.activity}>
+                      {a.activity_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="login-field">
+                <label>Сортировка</label>
+                <select
+                  className="select-field"
+                  value={filters.ordering}
+                  onChange={(e) => setFilters((p) => ({ ...p, ordering: e.target.value }))}
+                >
+                  <option value="-transaction_date">Дата (новые)</option>
+                  <option value="transaction_date">Дата (старые)</option>
+                  <option value="-amount">Сумма (убыв)</option>
+                  <option value="amount">Сумма (возр)</option>
+                  <option value="-activity_code__name">Вид деятельности (Я→А)</option>
+                  <option value="activity_code__name">Вид деятельности (А→Я)</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-row" style={{ marginTop: 12 }}>
+              <div className="login-field" style={{ flex: 2 }}>
+                <label>Поиск по описанию</label>
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
+                  placeholder="Введите текст для поиска…"
+                />
+              </div>
             </div>
           </div>
 
@@ -253,6 +324,7 @@ export function DashboardPage() {
             {loading ? (
               <p>Загрузка…</p>
             ) : (
+              <>
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
@@ -261,6 +333,7 @@ export function DashboardPage() {
                       <th>Тип</th>
                       <th>Сумма</th>
                       <th>Категория</th>
+                      <th>Вид деятельности</th>
                       <th>Способ</th>
                       <th>Описание</th>
                     </tr>
@@ -276,6 +349,7 @@ export function DashboardPage() {
                         <td>{t.transaction_type === 'income' ? 'Доход' : 'Расход'}</td>
                         <td>{t.amount}</td>
                         <td>{t.category_name || '—'}</td>
+                        <td>{t.activity_code_name || '—'}</td>
                         <td>{t.payment_method === 'cash' ? 'Наличный' : 'Безнал'}</td>
                         <td>{t.description || '—'}</td>
                       </tr>
@@ -283,6 +357,40 @@ export function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {pagination.count > pagination.limit && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
+                    Показано {transactions.length} из {pagination.count}
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      disabled={pagination.offset === 0}
+                      onClick={() => {
+                        const nextOffset = Math.max(0, pagination.offset - pagination.limit)
+                        setPagination((p) => ({ ...p, offset: nextOffset }))
+                        loadTransactions(nextOffset)
+                      }}
+                    >
+                      ← Назад
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      disabled={pagination.offset + pagination.limit >= pagination.count}
+                      onClick={() => {
+                        const nextOffset = pagination.offset + pagination.limit
+                        setPagination((p) => ({ ...p, offset: nextOffset }))
+                        loadTransactions(nextOffset)
+                      }}
+                    >
+                      Вперёд →
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </section>
@@ -321,7 +429,11 @@ export function DashboardPage() {
         isOpen={!!detailTx}
         onClose={() => setDetailTx(null)}
         onDeleted={() => {
-          loadTransactions()
+          loadTransactions(pagination.offset)
+          loadChart()
+        }}
+        onUpdated={() => {
+          loadTransactions(pagination.offset)
           loadChart()
         }}
       />

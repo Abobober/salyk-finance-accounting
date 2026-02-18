@@ -67,6 +67,13 @@ export function deleteCategory(id: number) {
   return apiFetch<void>(`/finance/categories/${id}/`, { method: 'DELETE' })
 }
 
+export interface TransactionsListResponse {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Transaction[]
+}
+
 /** GET /api/finance/transactions/ */
 export function listTransactions(params?: {
   transaction_type?: 'income' | 'expense'
@@ -78,6 +85,7 @@ export function listTransactions(params?: {
   payment_method?: 'cash' | 'non_cash'
   activity_code?: number
   ordering?: string
+  search?: string
   limit?: number
   offset?: number
 }) {
@@ -88,9 +96,16 @@ export function listTransactions(params?: {
     })
   }
   const query = q.toString()
-  return apiFetch<Transaction[] | { results: Transaction[] }>(
+  return apiFetch<Transaction[] | TransactionsListResponse>(
     `/finance/transactions/${query ? '?' + query : ''}`
-  ).then((r) => (Array.isArray(r) ? r : (r.results ?? [])))
+  )
+}
+
+/** GET /api/finance/transactions/ — возвращает только массив (для обратной совместимости) */
+export function listTransactionsArray(params?: Parameters<typeof listTransactions>[0]) {
+  return listTransactions(params).then((r) =>
+    Array.isArray(r) ? r : (r.results ?? [])
+  )
 }
 
 /** POST /api/finance/transactions/ - amount по контракту: number (> 0) */

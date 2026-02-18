@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AiChatPage } from '@/pages/AiChatPage'
 import { TaxReportsPage } from '@/pages/TaxReportsPage'
+import { CategoriesPage } from '@/pages/CategoriesPage'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/tax-reports" element={<TaxReportsPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/aichat" element={<AiChatPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

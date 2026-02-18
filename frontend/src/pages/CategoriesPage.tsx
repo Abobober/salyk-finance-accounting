@@ -1,7 +1,15 @@
-import { useState, useEffect, FormEvent } from 'react'
-import { listCategories, createCategory, deleteCategory, type Category } from '@/api/finance'
+import { useState, useEffect, FormEvent, useMemo } from 'react'
+import {
+  listCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  type Category,
+} from '@/api/finance'
 import '@/styles/layout.css'
 import '@/styles/login.css'
+
+type SortBy = 'name' | 'type' | ''
 
 export function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([])
@@ -9,6 +17,9 @@ export function CategoriesPage() {
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', category_type: 'expense' as 'income' | 'expense' })
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', category_type: 'expense' as 'income' | 'expense' })
+  const [sortBy, setSortBy] = useState<SortBy>('name')
 
   const load = () => {
     setLoading(true)
@@ -50,6 +61,33 @@ export function CategoriesPage() {
     }
   }
 
+  const handleStartEdit = (c: Category) => {
+    setEditingId(c.id)
+    setEditForm({ name: c.name, category_type: c.category_type })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return
+    setError(null)
+    setSubmitting(true)
+    try {
+      await updateCategory(editingId, editForm)
+      setEditingId(null)
+      load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const sortedItems = useMemo(() => {
+    const arr = [...items]
+    if (sortBy === 'name') arr.sort((a, b) => a.name.localeCompare(b.name))
+    if (sortBy === 'type') arr.sort((a, b) => a.category_type.localeCompare(b.category_type) || a.name.localeCompare(b.name))
+    return arr
+  }, [items, sortBy])
+
   return (
     <>
       <h1 className="main-title">Категории</h1>
@@ -90,32 +128,85 @@ export function CategoriesPage() {
       {loading ? (
         <p>Загрузка…</p>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>Тип</th>
-              <th>Системная</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <td>{c.name}</td>
-                <td>{c.category_type_display || (c.category_type === 'income' ? 'Доход' : 'Расход')}</td>
-                <td>{c.is_system ? 'Да' : ''}</td>
-                <td>
-                  {!c.is_system && (
-                    <button type="button" className="btn-sm danger" onClick={() => handleDelete(c.id, c.is_system)}>
-                      Удалить
-                    </button>
-                  )}
-                </td>
+        <>
+          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>Сортировка:</span>
+            <select
+              className="select-field"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              style={{ width: 'auto' }}
+            >
+              <option value="">По умолчанию</option>
+              <option value="name">По названию</option>
+              <option value="type">По типу</option>
+            </select>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th>Тип</th>
+                <th>Системная</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedItems.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    {editingId === c.id ? (
+                      <input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                        style={{ width: '100%' }}
+                      />
+                    ) : (
+                      c.name
+                    )}
+                  </td>
+                  <td>
+                    {editingId === c.id ? (
+                      <select
+                        className="select-field"
+                        value={editForm.category_type}
+                        onChange={(e) => setEditForm((p) => ({ ...p, category_type: e.target.value as 'income' | 'expense' }))}
+                      >
+                        <option value="income">Доход</option>
+                        <option value="expense">Расход</option>
+                      </select>
+                    ) : (
+                      c.category_type_display || (c.category_type === 'income' ? 'Доход' : 'Расход')
+                    )}
+                  </td>
+                  <td>{c.is_system ? 'Да' : ''}</td>
+                  <td>
+                    {!c.is_system &&
+                      (editingId === c.id ? (
+                        <>
+                          <button type="button" className="btn-sm" onClick={handleSaveEdit} disabled={submitting}>
+                            Сохранить
+                          </button>
+                          <button type="button" className="btn-sm" onClick={() => setEditingId(null)}>
+                            Отмена
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" className="btn-sm" onClick={() => handleStartEdit(c)}>
+                            Изменить
+                          </button>
+                          <button type="button" className="btn-sm danger" onClick={() => handleDelete(c.id, c.is_system)}>
+                            Удалить
+                          </button>
+                        </>
+                      ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </>
   )

@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, FormEvent, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateProfile } from '@/api/auth'
 import {
@@ -38,10 +38,22 @@ export function ProfilePage() {
     setForm({ first_name: user?.first_name ?? '', last_name: user?.last_name ?? '' })
   }, [user])
 
+  const [activitySearch, setActivitySearch] = useState('')
+
+  const loadActivityCodes = useCallback((search?: string) => {
+    listActivityCodes({ search: search || undefined, limit: 200 }).then((ac) =>
+      setActivityCodes(Array.isArray(ac) ? ac : [])
+    )
+  }, [])
+
   useEffect(() => {
     listOrganizationActivities().then((a) => setActivities(Array.isArray(a) ? a : []))
-    listActivityCodes().then((ac) => setActivityCodes(Array.isArray(ac) ? ac : []))
   }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => loadActivityCodes(activitySearch || undefined), 300)
+    return () => clearTimeout(t)
+  }, [activitySearch, loadActivityCodes])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -277,6 +289,13 @@ export function ProfilePage() {
           <div className="form-row">
             <div className="login-field" style={{ flex: 2 }}>
               <label>Добавить вид деятельности</label>
+              <input
+                type="text"
+                value={activitySearch}
+                onChange={(e) => setActivitySearch(e.target.value)}
+                placeholder="Поиск по коду или названию…"
+                style={{ marginBottom: 8 }}
+              />
               <select
                 className="select-field"
                 value={newActivity.activity || ''}
