@@ -16,9 +16,10 @@ from finance.constants import (
     ZERO,
 )
 from finance.models import Transaction
+from finance.querysets import apply_transaction_query_filters
 
 
-def get_time_series_data(user, period='monthly', date_from=None, date_to=None, transaction_type=None):
+def get_time_series_data(user, period='monthly', date_from=None, date_to=None, transaction_type=None, filters=None):
     """
     Time series data for charts (income/expense over time).
     
@@ -33,6 +34,7 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
         List of {period: str, income: Decimal, expense: Decimal, net: Decimal}
     """
     base_qs = Transaction.objects.filter(user=user)
+    base_qs = apply_transaction_query_filters(base_qs, filters)
     
     if date_from:
         base_qs = base_qs.filter(transaction_date__gte=date_from)
@@ -106,7 +108,7 @@ def get_time_series_data(user, period='monthly', date_from=None, date_to=None, t
     return result
 
 
-def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=None, limit=DEFAULT_CATEGORY_BREAKDOWN_LIMIT):
+def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=None, limit=DEFAULT_CATEGORY_BREAKDOWN_LIMIT, filters=None):
     """
     Category breakdown for a period (pie/bar chart data).
     
@@ -121,6 +123,7 @@ def get_category_breakdown(user, date_from=None, date_to=None, transaction_type=
         List of {category_name: str, category_type: str, total: Decimal, count: int}
     """
     base_qs = Transaction.objects.filter(user=user)
+    base_qs = apply_transaction_query_filters(base_qs, filters)
     
     if date_from:
         base_qs = base_qs.filter(transaction_date__gte=date_from)

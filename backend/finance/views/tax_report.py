@@ -66,5 +66,5 @@ class TaxReportView(APIView):
                 if not date_from and not date_to:
                     date_from, date_to = get_preset_dates('month')
 
-        data = build_tax_report(request.user, date_from, date_to)
+        data = build_tax_report(request.user, date_from, date_to, filters=request.query_params)
         return Response(data)

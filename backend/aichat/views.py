@@ -1,26 +1,17 @@
-import os
-
-import requests
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from config.openrouter import OpenRouterError, create_chat_completion
 from organization.models import OrganizationProfile
 
 from .models import ChatSession
 from .serializers import ChatSessionSerializer
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "stepfun/step-3.5-flash:free"
-
 
 class OpenRouterView(GenericAPIView):
-    """
-    AI-бухгалтер Кыргызстана с временной историей в RAM.
-    """
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "ai"
@@ -78,13 +69,9 @@ class OpenRouterView(GenericAPIView):
         message = serializer.validated_data["message"]
         session_id = serializer.validated_data["session_id"]
 
-        session, _ = ChatSession.objects.get_or_create(
-            session_id=session_id
-        )  
-
+        session, _ = ChatSession.objects.get_or_create(session_id=session_id)
         history = session.history
 
-        # Формируем сообщения для модели
         messages = [
             {
                 "role": "system",
@@ -93,49 +80,27 @@ class OpenRouterView(GenericAPIView):
                     "Специализируешься на ИП и ОсОО. Отлично знаешь налоговое законодательство КР, "
                     "ГНС, отчетность, Единый налог, НДС, подоходный налог, соцфонд, страховые взносы, "
                     "ЭСФ, ЭТТН и электронные сервисы налоговой. "
-                    "Отвечай структурировано, профессионально и строго по законам КР. "
-                    "Если данных недостаточно — задай уточняющий вопрос."
-                )
+                    "Отвечай структурированно, профессионально и строго по законам КР. "
+                    "Если данных недостаточно, задай уточняющий вопрос."
+                ),
             }
         ]
 
-        # Добавляем контекст пользователя и организации в system prompt
         user_context = self._build_user_org_context(request)
         if user_context:
-            base_content = messages[0]["content"]
-            messages[0]["content"] = base_content + "\n\nКонтекст: " + "; ".join(user_context)
+            messages[0]["content"] += "\n\nКонтекст: " + "; ".join(user_context)
 
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0.2}
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
         try:
-            response = requests.post(
-                OPENROUTER_URL,
-                headers=headers,
-                json=payload,
+            assistant_reply = create_chat_completion(
+                messages=messages,
+                temperature=0.2,
                 timeout=60,
             )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            return Response(
-                {"error": "Ошибка запроса к OpenRouter", "details": str(exc)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        try:
-            data = response.json()
-            assistant_reply = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, ValueError):
-            return Response(
-                {"error": "Некорректный ответ от OpenRouter", "raw": data},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        except OpenRouterError as exc:
+            return Response({"error": exc.message}, status=exc.status_code)
 
         session.append_message("user", message)
         session.append_message("assistant", assistant_reply)

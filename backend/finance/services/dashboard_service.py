@@ -4,14 +4,16 @@ from django.db.models import Q, Sum
 
 from finance.constants import DEFAULT_RECENT_TRANSACTIONS_LIMIT, ZERO
 from finance.models import Transaction
+from finance.querysets import apply_transaction_query_filters
 
 
-def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT):
+def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, filters=None):
     """
     Build dashboard payload: totals (annotate), by_category (annotate), recent_transactions.
     Uses annotate/aggregate only; no N+1.
     """
     base_qs = Transaction.objects.filter(user=user)
+    base_qs = apply_transaction_query_filters(base_qs, filters)
 
     # Totals via aggregate with conditional Sum
     totals = base_qs.aggregate(

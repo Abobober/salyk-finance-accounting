@@ -1,43 +1,131 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from '@/contexts/AuthContext'
-import { OnboardingProvider } from '@/contexts/OnboardingContext'
-import { MainLayout } from '@/components/MainLayout'
-import { LoginPage } from '@/pages/LoginPage'
-import { RegisterPage } from '@/pages/RegisterPage'
-import { OnboardingPage } from '@/pages/OnboardingPage'
-import { DashboardPage } from '@/pages/DashboardPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { AiChatPage } from '@/pages/AiChatPage'
-import { TaxReportsPage } from '@/pages/TaxReportsPage'
-import { CategoriesPage } from '@/pages/CategoriesPage'
+import { useEffect, useState } from 'react'
+import { AuthScreen } from './AuthScreen'
+import { OnboardingScreen } from './OnboardingScreen'
+import { WorkspaceScreen } from './WorkspaceScreen'
+import { getCurrentUser, logout, type UserProfile } from './api/auth'
+import { clearTokens, getStoredRefreshToken } from './api/client'
+import { getOrganizationStatus, type OrganizationStatusResponse } from './api/organization'
+import type { AuthMode, NoticeState, NoticeTone } from './lib'
 
-function App() {
+export default function App() {
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
+  const [organizationStatus, setOrganizationStatus] = useState<OrganizationStatusResponse | null>(null)
+  const [organizationLoading, setOrganizationLoading] = useState(false)
+  const [notice, setNotice] = useState<NoticeState | null>(null)
+
+  const pushNotice = (tone: NoticeTone, text: string) => {
+    setNotice({ tone, text })
+  }
+
+  useEffect(() => {
+    if (!notice) {
+      return undefined
+    }
+    const timer = window.setTimeout(() => setNotice(null), 4200)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  async function loadOrganizationStatus() {
+    if (!user) {
+      setOrganizationStatus(null)
+      return
+    }
+
+    setOrganizationLoading(true)
+    try {
+      const response = await getOrganizationStatus()
+      setOrganizationStatus(response)
+    } catch (error) {
+      pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить статус настройки.')
+      setOrganizationStatus({
+        onboarding_status: 'not_started',
+        is_completed: false,
+      })
+    } finally {
+      setOrganizationLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      const refresh = getStoredRefreshToken()
+      if (!refresh) {
+        setSessionLoading(false)
+        return
+      }
+
+      try {
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+      } catch {
+        clearTokens()
+      } finally {
+        setSessionLoading(false)
+      }
+    }
+
+    void restoreSession()
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setOrganizationStatus(null)
+      return
+    }
+    void loadOrganizationStatus()
+  }, [user])
+
+  const handleLogout = async () => {
+    const refresh = getStoredRefreshToken()
+    try {
+      if (refresh) {
+        await logout(refresh)
+      }
+    } catch {
+      // Always clear the local session even if logout API fails.
+    } finally {
+      clearTokens()
+      setUser(null)
+      setOrganizationStatus(null)
+      pushNotice('info', 'Вы вышли из аккаунта.')
+    }
+  }
+
+  if (sessionLoading) {
+    return <div className="loading-state">Восстанавливаем сессию...</div>
+  }
+
   return (
-    <AuthProvider>
-      <OnboardingProvider>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
+    <div className="app-shell">
+      {notice ? <div className={`notice-banner ${notice.tone}`}>{notice.text}</div> : null}
+
+      {!user ? (
+        <AuthScreen
+          mode={authMode}
+          onModeChange={setAuthMode}
+          onAuthenticated={setUser}
+          pushNotice={pushNotice}
+        />
+      ) : organizationLoading || !organizationStatus ? (
+        <div className="loading-state">Загружаем настройку организации...</div>
+      ) : !organizationStatus.is_completed ? (
+        <OnboardingScreen
+          user={user}
+          onCompleted={async () => {
+            await loadOrganizationStatus()
           }}
-        >
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/tax-reports" element={<TaxReportsPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/aichat" element={<AiChatPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </OnboardingProvider>
-    </AuthProvider>
+          pushNotice={pushNotice}
+        />
+      ) : (
+        <WorkspaceScreen
+          user={user}
+          onLogout={handleLogout}
+          onUserUpdated={setUser}
+          pushNotice={pushNotice}
+        />
+      )}
+    </div>
   )
 }
-
-export default App

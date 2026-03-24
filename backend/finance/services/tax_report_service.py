@@ -9,9 +9,10 @@ from django.db.models import Q, Sum
 
 from finance.constants import ZERO
 from finance.models import Transaction
+from finance.querysets import apply_transaction_query_filters
 
 
-def build_tax_report(user, date_from, date_to):
+def build_tax_report(user, date_from, date_to, filters=None):
     """
     Build tax report data for the given period.
     
@@ -23,6 +24,7 @@ def build_tax_report(user, date_from, date_to):
         transaction_date__gte=date_from,
         transaction_date__lte=date_to
     )
+    qs = apply_transaction_query_filters(qs, filters)
 
     # Overall totals
     totals = qs.aggregate(

@@ -20,9 +20,10 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """Validate tax period settings."""
-        tax_period_type = attrs.get('tax_period_type') or self.instance.tax_period_type if self.instance else None
-        tax_period_preset = attrs.get('tax_period_preset') or (self.instance.tax_period_preset if self.instance else None)
-        tax_period_custom_day = attrs.get('tax_period_custom_day') or (self.instance.tax_period_custom_day if self.instance else None)
+        instance = self.instance
+        tax_period_type = attrs['tax_period_type'] if 'tax_period_type' in attrs else (instance.tax_period_type if instance else None)
+        tax_period_preset = attrs['tax_period_preset'] if 'tax_period_preset' in attrs else (instance.tax_period_preset if instance else None)
+        tax_period_custom_day = attrs['tax_period_custom_day'] if 'tax_period_custom_day' in attrs else (instance.tax_period_custom_day if instance else None)
         
         if tax_period_type == OrganizationProfile.TaxPeriodType.PRESET:
             if not tax_period_preset:
@@ -104,9 +105,20 @@ class OrganizationActivitySerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         profile = self.context['request'].user.organization
-        if attrs.get('is_primary') and profile.activities.filter(is_primary=True).exists():
-            raise serializers.ValidationError("Основной вид деятельности уже выбран")
+        if attrs.get('activity') and profile.activities.exclude(pk=getattr(self.instance, 'pk', None)).filter(activity=attrs['activity']).exists():
+            raise serializers.ValidationError({'activity': 'Этот вид деятельности уже добавлен.'})
         return attrs
+
+    def create(self, validated_data):
+        profile = validated_data['profile']
+        if validated_data.get('is_primary'):
+            profile.activities.filter(is_primary=True).update(is_primary=False)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if validated_data.get('is_primary'):
+            instance.profile.activities.exclude(pk=instance.pk).filter(is_primary=True).update(is_primary=False)
+        return super().update(instance, validated_data)
 
 class OrganizationStatusSerializer(serializers.Serializer):
     onboarding_status = serializers.CharField()
