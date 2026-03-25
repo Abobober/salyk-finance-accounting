@@ -420,6 +420,8 @@ export function WorkspaceScreen({
         tax_period_custom_day:
           organizationProfile.tax_period_type === 'custom'
             ? organizationProfile.tax_period_custom_day ?? 1
+            : organizationProfile.tax_period_type === 'preset'
+              ? organizationProfile.tax_period_custom_day ?? null
             : null,
       })
       setOrganizationProfile(updated)
@@ -1481,7 +1483,9 @@ export function WorkspaceScreen({
                               ? organizationProfile.tax_period_preset ?? 'monthly'
                               : null,
                           tax_period_custom_day:
-                            event.target.value === 'custom'
+                            event.target.value === 'preset'
+                              ? organizationProfile.tax_period_custom_day ?? null
+                              : event.target.value === 'custom'
                               ? organizationProfile.tax_period_custom_day ?? 1
                               : null,
                         })
@@ -1494,6 +1498,7 @@ export function WorkspaceScreen({
                   </label>
 
                   {organizationProfile.tax_period_type === 'preset' ? (
+                    <>
                     <label className="field">
                       <span>Период</span>
                       <select
@@ -1510,6 +1515,23 @@ export function WorkspaceScreen({
                         <option value="yearly">Ежегодно</option>
                       </select>
                     </label>
+                    <label className="field">
+                      <span>День начала периода</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="1"
+                        value={organizationProfile.tax_period_custom_day ?? ''}
+                        onChange={(event) =>
+                          setOrganizationProfile({
+                            ...organizationProfile,
+                            tax_period_custom_day: event.target.value ? Number(event.target.value) : null,
+                          })
+                        }
+                      />
+                    </label>
+                    </>
                   ) : null}
 
                   {organizationProfile.tax_period_type === 'custom' ? (

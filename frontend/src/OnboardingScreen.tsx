@@ -214,7 +214,7 @@ export function OnboardingScreen({
                   void saveProfile({
                     tax_period_type: 'preset',
                     tax_period_preset: profile.tax_period_preset ?? 'monthly',
-                    tax_period_custom_day: null,
+                    tax_period_custom_day: profile.tax_period_custom_day ?? null,
                   })
                 }
                 disabled={saving}
@@ -240,6 +240,7 @@ export function OnboardingScreen({
             </div>
 
             {profile.tax_period_type === 'preset' ? (
+              <div className="stack-sm">
               <div className="field-grid three">
                 {(['monthly', 'quarterly', 'yearly'] as TaxPeriodPreset[]).map((preset) => (
                   <button
@@ -252,6 +253,38 @@ export function OnboardingScreen({
                     <strong>{preset === 'monthly' ? 'Ежемесячно' : preset === 'quarterly' ? 'Ежеквартально' : 'Ежегодно'}</strong>
                   </button>
                 ))}
+              </div>
+              <div className="inline-form">
+                <label className="field">
+                  <span>День начала периода</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="1"
+                    value={profile.tax_period_custom_day ?? ''}
+                    onChange={(event) =>
+                      setProfile({
+                        ...profile,
+                        tax_period_custom_day: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    void saveProfile({
+                      tax_period_preset: profile.tax_period_preset ?? 'monthly',
+                      tax_period_custom_day: profile.tax_period_custom_day ?? null,
+                    })
+                  }
+                  disabled={saving}
+                >
+                  Сохранить
+                </button>
+              </div>
               </div>
             ) : null}
 

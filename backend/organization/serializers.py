@@ -1,13 +1,14 @@
 from rest_framework import serializers
-from .models import OrganizationProfile, OrganizationActivity
+
+from .models import OrganizationActivity, OrganizationProfile
 
 
 class OrganizationProfileSerializer(serializers.ModelSerializer):
     """Сериализатор для получения и обновления налогового профиля пользователя."""
-    
+
     tax_period_type_display = serializers.CharField(source='get_tax_period_type_display', read_only=True)
     tax_period_preset_display = serializers.CharField(source='get_tax_period_preset_display', read_only=True)
-    
+
     class Meta:
         model = OrganizationProfile
         fields = (
@@ -24,15 +25,15 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
         tax_period_type = attrs['tax_period_type'] if 'tax_period_type' in attrs else (instance.tax_period_type if instance else None)
         tax_period_preset = attrs['tax_period_preset'] if 'tax_period_preset' in attrs else (instance.tax_period_preset if instance else None)
         tax_period_custom_day = attrs['tax_period_custom_day'] if 'tax_period_custom_day' in attrs else (instance.tax_period_custom_day if instance else None)
-        
+
         if tax_period_type == OrganizationProfile.TaxPeriodType.PRESET:
             if not tax_period_preset:
                 raise serializers.ValidationError({
                     'tax_period_preset': 'Необходимо выбрать предустановленный период.'
                 })
-            if tax_period_custom_day is not None:
+            if tax_period_custom_day is not None and (tax_period_custom_day < 1 or tax_period_custom_day > 31):
                 raise serializers.ValidationError({
-                    'tax_period_custom_day': 'День месяца не используется для предустановленного периода.'
+                    'tax_period_custom_day': 'День месяца должен быть от 1 до 31.'
                 })
         elif tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
             if not tax_period_custom_day:
@@ -47,7 +48,7 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'tax_period_preset': 'Предустановленный период не используется для пользовательского типа.'
                 })
-        
+
         return attrs
 
     def update(self, instance, validated_data):
@@ -55,13 +56,10 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
             instance.onboarding_status = OrganizationProfile.OnboardingStatus.ORG_TYPE
         elif 'tax_regime' in validated_data and instance.onboarding_status in [OrganizationProfile.OnboardingStatus.ORG_TYPE]:
             instance.onboarding_status = OrganizationProfile.OnboardingStatus.TAX_REGIME
-        
-        # Clear unused tax period fields
-        if validated_data.get('tax_period_type') == OrganizationProfile.TaxPeriodType.PRESET:
-            validated_data['tax_period_custom_day'] = None
-        elif validated_data.get('tax_period_type') == OrganizationProfile.TaxPeriodType.CUSTOM:
+
+        if validated_data.get('tax_period_type') == OrganizationProfile.TaxPeriodType.CUSTOM:
             validated_data['tax_period_preset'] = None
-        
+
         return super().update(instance, validated_data)
 
 
@@ -69,6 +67,7 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
     """
     Сериализатор для финализации онбординга.
     """
+
     class Meta:
         model = OrganizationProfile
         fields = ()
@@ -91,11 +90,11 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 class OrganizationActivitySerializer(serializers.ModelSerializer):
     """
     Сериализатор для добавления видов деятельности в профиль пользователя.
     """
+
     activity_name = serializers.CharField(source='activity.name', read_only=True)
 
     class Meta:
@@ -119,6 +118,7 @@ class OrganizationActivitySerializer(serializers.ModelSerializer):
         if validated_data.get('is_primary'):
             instance.profile.activities.exclude(pk=instance.pk).filter(is_primary=True).update(is_primary=False)
         return super().update(instance, validated_data)
+
 
 class OrganizationStatusSerializer(serializers.Serializer):
     onboarding_status = serializers.CharField()

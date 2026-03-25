@@ -10,6 +10,7 @@ class OrganizationProfile(models.Model):
     """
     Модель для хранения информации о налоговом режиме и видах деятельности пользователя.
     """
+
     class OrgType(models.TextChoices):
         IE = 'ie', 'ИП'
         LLC = 'llc', 'ОсОО'
@@ -43,7 +44,6 @@ class OrganizationProfile(models.Model):
     org_type = models.CharField(max_length=10, choices=OrgType.choices, null=True, blank=True)
     tax_regime = models.CharField(max_length=15, choices=TaxRegime.choices, null=True, blank=True)
 
-    # Tax period settings
     tax_period_type = models.CharField(
         max_length=10,
         choices=TaxPeriodType.choices,
@@ -62,7 +62,7 @@ class OrganizationProfile(models.Model):
         null=True,
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(31)],
-        verbose_name='День месяца для пользовательского периода (1-31)'
+        verbose_name='День месяца для налогового периода (1-31)'
     )
 
     onboarding_status = models.CharField(
@@ -84,21 +84,17 @@ class OrganizationProfile(models.Model):
             raise ValidationError({
                 'tax_period_custom_day': 'Необходимо указать день месяца для пользовательского периода.'
             })
-        if self.tax_period_type == self.TaxPeriodType.PRESET and self.tax_period_custom_day:
-            raise ValidationError({
-                'tax_period_custom_day': 'День месяца не используется для предустановленного периода.'
-            })
         if self.tax_period_type == self.TaxPeriodType.CUSTOM and self.tax_period_preset:
             raise ValidationError({
                 'tax_period_preset': 'Предустановленный период не используется для пользовательского типа.'
             })
 
 
-
 class OrganizationActivity(models.Model):
     """
     Промежуточная модель для связи профиля организации с видами деятельности.
     """
+
     profile = models.ForeignKey(
         OrganizationProfile,
         on_delete=models.CASCADE,
@@ -113,4 +109,3 @@ class OrganizationActivity(models.Model):
 
     class Meta:
         unique_together = ('profile', 'activity')
-
