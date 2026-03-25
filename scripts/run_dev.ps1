@@ -28,7 +28,7 @@ Write-Host "`nActivity codes..." -ForegroundColor Cyan
 & $Python manage.py import_activities_code
 
 Write-Host "`nDemo data..." -ForegroundColor Cyan
-& $Python manage.py setup_demo_data --user admin@gmail.com --skip-if-populated
+& $Python manage.py setup_demo_data --skip-if-populated
 
 Set-Location $ProjectRoot
 
@@ -47,4 +47,3 @@ Write-Host "Frontend (http://localhost:3000)..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$FrontendPath'; npm run dev"
 
 Write-Host "`nDone. 3 windows: backend, bot, frontend." -ForegroundColor Green
-Write-Host 'Login: admin@gmail.com / admin' -ForegroundColor Yellow

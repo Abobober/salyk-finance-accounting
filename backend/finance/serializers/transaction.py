@@ -36,7 +36,7 @@ class TransactionSerializer(serializers.ModelSerializer):
                 Q(user=user) | Q(is_system=True)
             )
             self.fields['activity_code'].queryset = ActivityCode.objects.filter(
-                organizationactivity__profile=user.organization
+                organizationactivity__profile__user=user
             ).distinct()
         else:
             self.fields['category'].queryset = Category.objects.filter(is_system=True)

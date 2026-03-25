@@ -58,7 +58,7 @@ def _get_recurring_period_dates(
 
 def _get_preset_period_dates(preset: str, reference_date: date, custom_day: Optional[int] = None) -> Tuple[date, date]:
     """Calculate dates for preset tax periods."""
-    anchor_day = custom_day or 1
+    anchor_day = 1
 
     if preset == OrganizationProfile.TaxPeriodPreset.MONTHLY:
         return _get_recurring_period_dates(
