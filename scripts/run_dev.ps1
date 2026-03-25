@@ -36,9 +36,21 @@ Write-Host "`n=== Starting services ===" -ForegroundColor Green
 
 $BackendPath = Join-Path $ProjectRoot "backend"
 $FrontendPath = Join-Path $ProjectRoot "frontend"
+$RedisCli = "C:\Program Files\Redis\redis-cli.exe"
 
 Write-Host "Backend (http://127.0.0.1:8000)..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendPath'; & '$Python' manage.py runserver"
+
+if (Test-Path $RedisCli) {
+    Write-Host "Redis..." -ForegroundColor Cyan
+    & $RedisCli ping | Out-Null
+}
+
+Write-Host "Celery worker..." -ForegroundColor Cyan
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendPath'; & '$Python' -m celery -A config worker -l info -P solo"
+
+Write-Host "Celery beat..." -ForegroundColor Cyan
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendPath'; & '$Python' -m celery -A config beat -l info"
 
 Write-Host "Telegram bot..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$ProjectRoot'; & '$Python' '$(Join-Path $ProjectRoot 'tg_bot\run_bot.py')'"
@@ -46,4 +58,4 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$ProjectRoot'
 Write-Host "Frontend (http://localhost:3000)..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$FrontendPath'; npm run dev"
 
-Write-Host "`nDone. 3 windows: backend, bot, frontend." -ForegroundColor Green
+Write-Host "`nDone. 5 windows: backend, celery worker, celery beat, bot, frontend." -ForegroundColor Green

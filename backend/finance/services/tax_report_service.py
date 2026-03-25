@@ -1,32 +1,22 @@
-"""
-Tax report for a chosen period. Uses transactions + org tax settings.
-No separate app: tax period settings live in organization, report data in finance.
-"""
+"""Tax report service with cache support."""
 
-from decimal import Decimal
-
+from django.conf import settings
 from django.db.models import Q, Sum
 
+from finance.cache_utils import build_finance_cache_key, get_cached_finance_payload
 from finance.constants import ZERO
 from finance.models import Transaction
 from finance.querysets import apply_transaction_query_filters
 
 
-def build_tax_report(user, date_from, date_to, filters=None):
-    """
-    Build tax report data for the given period.
-    
-    Returns aggregates: totals by type, by payment method (with tax amounts),
-    taxable vs non-taxable, and by activity code for business transactions.
-    """
+def _build_tax_report(user, date_from, date_to, filters=None):
     qs = Transaction.objects.filter(
         user=user,
         transaction_date__gte=date_from,
-        transaction_date__lte=date_to
+        transaction_date__lte=date_to,
     )
     qs = apply_transaction_query_filters(qs, filters)
 
-    # Overall totals
     totals = qs.aggregate(
         total_income=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.INCOME), default=0),
         total_expense=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.EXPENSE), default=0),
@@ -34,7 +24,6 @@ def build_tax_report(user, date_from, date_to, filters=None):
     total_income = totals['total_income'] or ZERO
     total_expense = totals['total_expense'] or ZERO
 
-    # Taxable vs non-taxable
     taxable = qs.filter(is_taxable=True).aggregate(
         income=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.INCOME), default=0),
         expense=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.EXPENSE), default=0),
@@ -44,7 +33,6 @@ def build_tax_report(user, date_from, date_to, filters=None):
         expense=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.EXPENSE), default=0),
     )
 
-    # By payment method (cash / non_cash)
     by_payment = []
     for method, label in Transaction.PaymentMethod.choices:
         method_qs = qs.filter(payment_method=method)
@@ -62,7 +50,6 @@ def build_tax_report(user, date_from, date_to, filters=None):
             'net': str(income - expense),
         })
 
-    # By activity code (business transactions)
     by_activity = list(
         qs.filter(is_business=True, activity_code__isnull=False)
         .values('activity_code', 'activity_code__name')
@@ -104,3 +91,20 @@ def build_tax_report(user, date_from, date_to, filters=None):
         'by_payment_method': by_payment,
         'by_activity': by_activity_list,
     }
+
+
+def build_tax_report(user, date_from, date_to, filters=None):
+    cache_key = build_finance_cache_key(
+        'tax_report',
+        user.id,
+        payload={
+            'date_from': date_from,
+            'date_to': date_to,
+            'filters': filters,
+        },
+    )
+    return get_cached_finance_payload(
+        cache_key,
+        builder=lambda: _build_tax_report(user, date_from=date_from, date_to=date_to, filters=filters),
+        ttl=settings.FINANCE_CACHE_TTL,
+    )

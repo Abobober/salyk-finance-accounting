@@ -1,21 +1,18 @@
-"""Dashboard service: aggregates via annotate."""
+"""Dashboard service: aggregates via annotate and cache."""
 
+from django.conf import settings
 from django.db.models import Q, Sum
 
+from finance.cache_utils import build_finance_cache_key, get_cached_finance_payload
 from finance.constants import DEFAULT_RECENT_TRANSACTIONS_LIMIT, ZERO
 from finance.models import Transaction
 from finance.querysets import apply_transaction_query_filters
 
 
-def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, filters=None):
-    """
-    Build dashboard payload: totals (annotate), by_category (annotate), recent_transactions.
-    Uses annotate/aggregate only; no N+1.
-    """
+def _build_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, filters=None):
     base_qs = Transaction.objects.filter(user=user)
     base_qs = apply_transaction_query_filters(base_qs, filters)
 
-    # Totals via aggregate with conditional Sum
     totals = base_qs.aggregate(
         total_income=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.INCOME), default=0),
         total_expense=Sum('amount', filter=Q(transaction_type=Transaction.TransactionType.EXPENSE), default=0),
@@ -23,7 +20,6 @@ def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, fil
     total_income = totals['total_income'] or ZERO
     total_expense = totals['total_expense'] or ZERO
 
-    # By category via values + annotate
     by_category = (
         base_qs.values('category__name', 'category__category_type')
         .annotate(total=Sum('amount'))
@@ -38,7 +34,6 @@ def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, fil
         for row in by_category
     ]
 
-    # Recent transactions (last N)
     recent = (
         base_qs.select_related('category', 'activity_code')
         .order_by('-transaction_date', '-created_at')[:recent_limit]
@@ -66,3 +61,18 @@ def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, fil
         'recent_transactions': recent_list,
     }
 
+
+def get_dashboard_data(user, recent_limit=DEFAULT_RECENT_TRANSACTIONS_LIMIT, filters=None):
+    cache_key = build_finance_cache_key(
+        'dashboard',
+        user.id,
+        payload={
+            'recent_limit': recent_limit,
+            'filters': filters,
+        },
+    )
+    return get_cached_finance_payload(
+        cache_key,
+        builder=lambda: _build_dashboard_data(user, recent_limit=recent_limit, filters=filters),
+        ttl=settings.DASHBOARD_CACHE_TTL,
+    )

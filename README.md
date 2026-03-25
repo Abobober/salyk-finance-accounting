@@ -6,6 +6,8 @@ Backend-система финансового учета для индивиду
 - Django REST Framework
 - PostgreSQL
 - JWT Authentication
+- Redis
+- Celery
 
 ## Инициализация
 1. Создать виртуальное окружение: `python -m venv venv`
@@ -23,6 +25,8 @@ Backend-система финансового учета для индивиду
 Скрипт применяет миграции, импортирует справочники, при необходимости заполняет демо-данные и запускает backend, Telegram-бота и frontend.
 
 Если нужен dev-superuser, заранее задайте `DJANGO_SUPERUSER_EMAIL` и `DJANGO_SUPERUSER_PASSWORD`.
+
+Для фоновых задач проект использует локальный Redis на `redis://127.0.0.1:6379/0` и Celery.
 
 ## Основные возможности backend
 - регистрация и JWT-аутентификация
