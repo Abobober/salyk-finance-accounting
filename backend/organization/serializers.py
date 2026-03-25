@@ -25,15 +25,19 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
         tax_period_preset = attrs['tax_period_preset'] if 'tax_period_preset' in attrs else (instance.tax_period_preset if instance else None)
         tax_period_custom_day = attrs['tax_period_custom_day'] if 'tax_period_custom_day' in attrs else (instance.tax_period_custom_day if instance else None)
 
-        if tax_period_type == OrganizationProfile.TaxPeriodType.PRESET:
-            tax_period_custom_day = None
-        elif tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
+        if tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
             tax_period_preset = None
 
         if tax_period_type == OrganizationProfile.TaxPeriodType.PRESET and not tax_period_preset:
             raise serializers.ValidationError({
                 'tax_period_preset': 'Preset tax period is required.',
             })
+
+        if tax_period_type == OrganizationProfile.TaxPeriodType.PRESET and tax_period_custom_day is not None:
+            if tax_period_custom_day < 1 or tax_period_custom_day > 31:
+                raise serializers.ValidationError({
+                    'tax_period_custom_day': 'Start day must be between 1 and 31.',
+                })
 
         if tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
             if not tax_period_custom_day:
@@ -55,8 +59,6 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
 
         if validated_data.get('tax_period_type') == OrganizationProfile.TaxPeriodType.CUSTOM:
             validated_data['tax_period_preset'] = None
-        elif validated_data.get('tax_period_type') == OrganizationProfile.TaxPeriodType.PRESET:
-            validated_data['tax_period_custom_day'] = None
 
         return super().update(instance, validated_data)
 
@@ -69,13 +71,13 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         profile = self.instance
         if not profile.org_type:
-            raise serializers.ValidationError("Organization type is required.")
+            raise serializers.ValidationError('Organization type is required.')
         if not profile.tax_regime:
-            raise serializers.ValidationError("Tax regime is required.")
+            raise serializers.ValidationError('Tax regime is required.')
         if not profile.activities.exists():
-            raise serializers.ValidationError("At least one activity is required.")
+            raise serializers.ValidationError('At least one activity is required.')
         if not profile.activities.filter(is_primary=True).exists():
-            raise serializers.ValidationError("Primary activity is required.")
+            raise serializers.ValidationError('Primary activity is required.')
         return attrs
 
     def update(self, instance, validated_data):
@@ -94,7 +96,8 @@ class OrganizationActivitySerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         profile = get_or_create_organization_profile(self.context['request'].user)
-        if attrs.get('activity') and profile.activities.exclude(pk=getattr(self.instance, 'pk', None)).filter(activity=attrs['activity']).exists():
+        current_pk = getattr(self.instance, 'pk', None)
+        if attrs.get('activity') and profile.activities.exclude(pk=current_pk).filter(activity=attrs['activity']).exists():
             raise serializers.ValidationError({'activity': 'This activity is already linked to the organization.'})
         return attrs
 

@@ -9,6 +9,7 @@ from finance.permissions import IsOnboardingCompleted
 from finance.serializers import TaxReportResponseSerializer
 from finance.services.tax_report_service import build_tax_report
 from finance.utils import get_preset_dates, parse_date_param
+from organization.services import get_or_create_organization_profile
 
 
 class TaxReportView(APIView):
@@ -28,7 +29,7 @@ class TaxReportView(APIView):
         use_org = request.query_params.get('use_org_tax_period', '').lower() in ('true', '1', 'yes')
 
         if use_org:
-            profile = request.user.organization
+            profile = get_or_create_organization_profile(request.user)
             if not profile.tax_period_type:
                 return Response(
                     {'error': 'Tax period is not configured. Set it in organization profile or use date_from/date_to.'},

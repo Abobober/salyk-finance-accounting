@@ -23,7 +23,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             'id', 'amount', 'transaction_type', 'category', 'category_name',
             'description', 'transaction_date', 'created_at', 'payment_method',
             'is_business', 'is_taxable', 'activity_code', 'activity_code_name',
-            'cash_tax_rate', 'non_cash_tax_rate'
+            'cash_tax_rate', 'non_cash_tax_rate',
         )
         read_only_fields = ('id', 'created_at', 'activity_code_name', 'cash_tax_rate', 'non_cash_tax_rate')
 
@@ -32,11 +32,9 @@ class TransactionSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user and request.user.is_authenticated:
             user = request.user
-            self.fields['category'].queryset = Category.objects.filter(
-                Q(user=user) | Q(is_system=True)
-            )
+            self.fields['category'].queryset = Category.objects.filter(Q(user=user) | Q(is_system=True))
             self.fields['activity_code'].queryset = ActivityCode.objects.filter(
-                organizationactivity__profile__user=user
+                organizationactivity__profile__user=user,
             ).distinct()
         else:
             self.fields['category'].queryset = Category.objects.filter(is_system=True)
@@ -47,7 +45,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             if not isinstance(value, Decimal):
                 value = Decimal(str(value))
             if value < MIN_TRANSACTION_AMOUNT:
-                raise serializers.ValidationError("Сумма должна быть положительной.")
+                raise serializers.ValidationError('Amount must be positive.')
             if value > MAX_TRANSACTION_AMOUNT:
-                raise serializers.ValidationError("Сумма превышает допустимый предел.")
+                raise serializers.ValidationError('Amount exceeds the allowed limit.')
         return value

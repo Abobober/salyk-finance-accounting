@@ -20,9 +20,9 @@ class OrganizationProfile(models.Model):
         CUSTOM = 'custom', 'Custom period'
 
     class TaxPeriodPreset(models.TextChoices):
-        MONTHLY = 'monthly', 'Monthly (1st day)'
-        QUARTERLY = 'quarterly', 'Quarterly (1st day)'
-        YEARLY = 'yearly', 'Yearly (January 1)'
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        YEARLY = 'yearly', 'Yearly'
 
     class OnboardingStatus(models.TextChoices):
         NOT_STARTED = 'not_started', 'Not started'
@@ -52,7 +52,7 @@ class OrganizationProfile(models.Model):
     )
 
     def __str__(self):
-        return f"Organization of {self.user.email}"
+        return f'Organization of {self.user.email}'
 
     def clean(self):
         if not self.tax_period_type:
@@ -66,14 +66,12 @@ class OrganizationProfile(models.Model):
             raise ValidationError({
                 'tax_period_preset': 'Preset tax period is required.',
             })
-        if self.tax_period_type == self.TaxPeriodType.PRESET and self.tax_period_custom_day is not None:
-            raise ValidationError({
-                'tax_period_custom_day': 'Custom day must be empty for preset periods.',
-            })
+
         if self.tax_period_type == self.TaxPeriodType.CUSTOM and not self.tax_period_custom_day:
             raise ValidationError({
                 'tax_period_custom_day': 'Custom day is required for custom periods.',
             })
+
         if self.tax_period_type == self.TaxPeriodType.CUSTOM and self.tax_period_preset:
             raise ValidationError({
                 'tax_period_preset': 'Preset period must be empty for custom periods.',
@@ -87,8 +85,7 @@ class OrganizationProfile(models.Model):
                      models.Q(tax_period_preset__isnull=True) &
                      models.Q(tax_period_custom_day__isnull=True)) |
                     (models.Q(tax_period_type='preset') &
-                     models.Q(tax_period_preset__isnull=False) &
-                     models.Q(tax_period_custom_day__isnull=True)) |
+                     models.Q(tax_period_preset__isnull=False)) |
                     (models.Q(tax_period_type='custom') &
                      models.Q(tax_period_custom_day__isnull=False) &
                      models.Q(tax_period_preset__isnull=True))

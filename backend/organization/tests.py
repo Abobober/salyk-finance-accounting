@@ -1,8 +1,11 @@
+from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from activities.models import ActivityCode
@@ -55,7 +58,7 @@ class OrganizationFlowTests(TestCase):
         self.assertIsNone(profile.tax_period_preset)
         self.assertEqual(profile.tax_period_custom_day, 15)
 
-    def test_switch_from_custom_to_preset_clears_custom_day(self):
+    def test_switch_from_custom_to_preset_keeps_start_day(self):
         OrganizationProfile.objects.create(
             user=self.user,
             tax_period_type=OrganizationProfile.TaxPeriodType.CUSTOM,
@@ -71,7 +74,42 @@ class OrganizationFlowTests(TestCase):
         profile = OrganizationProfile.objects.get(user=self.user)
         self.assertEqual(profile.tax_period_type, OrganizationProfile.TaxPeriodType.PRESET)
         self.assertEqual(profile.tax_period_preset, OrganizationProfile.TaxPeriodPreset.MONTHLY)
-        self.assertIsNone(profile.tax_period_custom_day)
+        self.assertEqual(profile.tax_period_custom_day, 20)
+
+    def test_preset_period_allows_updating_start_day_without_switching_type(self):
+        OrganizationProfile.objects.create(
+            user=self.user,
+            tax_period_type=OrganizationProfile.TaxPeriodType.PRESET,
+            tax_period_preset=OrganizationProfile.TaxPeriodPreset.MONTHLY,
+            tax_period_custom_day=5,
+        )
+
+        response = self.client.patch('/api/organization/profile/', {
+            'tax_period_custom_day': 20,
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        profile = OrganizationProfile.objects.get(user=self.user)
+        self.assertEqual(profile.tax_period_type, OrganizationProfile.TaxPeriodType.PRESET)
+        self.assertEqual(profile.tax_period_preset, OrganizationProfile.TaxPeriodPreset.MONTHLY)
+        self.assertEqual(profile.tax_period_custom_day, 20)
+
+    def test_tax_period_endpoint_uses_preset_start_day(self):
+        OrganizationProfile.objects.create(
+            user=self.user,
+            tax_period_type=OrganizationProfile.TaxPeriodType.PRESET,
+            tax_period_preset=OrganizationProfile.TaxPeriodPreset.MONTHLY,
+            tax_period_custom_day=20,
+        )
+
+        fixed_now = datetime(2026, 3, 25, 10, 0, tzinfo=timezone.get_current_timezone())
+        with patch('organization.tax_period_utils.timezone.now', return_value=fixed_now):
+            response = self.client.get('/api/organization/tax-period/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['current_period']['start'], '2026-03-20')
+        self.assertEqual(response.data['current_period']['end'], '2026-04-19')
+        self.assertEqual(response.data['next_period_start'], '2026-04-20')
 
     def test_only_one_primary_activity_allowed_per_profile(self):
         profile = OrganizationProfile.objects.create(user=self.user)

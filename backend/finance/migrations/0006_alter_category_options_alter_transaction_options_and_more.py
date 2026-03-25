@@ -7,6 +7,19 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def backfill_business_transactions_without_activity(apps, schema_editor):
+    Transaction = apps.get_model('finance', 'Transaction')
+    (
+        Transaction.objects
+        .filter(is_business=True, activity_code__isnull=True)
+        .update(
+            is_business=False,
+            cash_tax_rate=None,
+            non_cash_tax_rate=None,
+        )
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -108,6 +121,10 @@ class Migration(migrations.Migration):
             model_name='transaction',
             name='user',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='transactions', to=settings.AUTH_USER_MODEL),
+        ),
+        migrations.RunPython(
+            backfill_business_transactions_without_activity,
+            migrations.RunPython.noop,
         ),
         migrations.AddConstraint(
             model_name='transaction',

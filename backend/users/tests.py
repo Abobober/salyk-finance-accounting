@@ -1,6 +1,7 @@
 from io import StringIO
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -35,6 +36,7 @@ class EnsureSuperuserCommandTests(TestCase):
 
 class IdempotencyMiddlewareTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.payload = {
             'email': 'duplicate@example.com',
