@@ -8,6 +8,7 @@ from .analytics import (
 from .category import CategoryViewSet
 from .dashboard import DashboardView
 from .tax_report import TaxReportView
+from .tax_report_v2 import TaxReportV2View
 from .transaction import TransactionViewSet
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     'CategoryBreakdownAnalyticsView',
     'PeriodComparisonAnalyticsView',
     'TaxReportView',
+    'TaxReportV2View',
 ]
