@@ -1,16 +1,12 @@
 import os
 from pathlib import Path
 
-import requests
+from config.openrouter import OpenRouterError, create_chat_completion
 
 try:
     from pypdf import PdfReader
 except Exception:  # pragma: no cover
     PdfReader = None
-
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "stepfun/step-3.5-flash:free"
 
 
 class AITaxValidator:
@@ -51,28 +47,17 @@ class AITaxValidator:
 3. Краткое пояснение.
 """
 
-        if not OPENROUTER_API_KEY:
+        if not os.getenv("OPENROUTER_API_KEY"):
             return "AI-проверка недоступна: не задан OPENROUTER_API_KEY."
 
-        payload = {
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": "Ты налоговый аудитор КР."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.2,
-        }
-
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
         try:
-            response = requests.post(URL, headers=headers, json=payload, timeout=30)
-            response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
-        except requests.RequestException as exc:
-            return f"AI-проверка недоступна: ошибка запроса к OpenRouter ({exc})."
-        except (KeyError, IndexError, TypeError, ValueError):
-            return "AI-проверка недоступна: неожиданный формат ответа OpenRouter."
+            return create_chat_completion(
+                messages=[
+                    {"role": "system", "content": "Ты налоговый аудитор КР."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                timeout=30,
+            )
+        except OpenRouterError as exc:
+            return f"AI-проверка недоступна: {exc.message}"

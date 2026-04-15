@@ -52,7 +52,8 @@ class TimeSeriesAnalyticsView(APIView):
             period=period,
             date_from=date_from,
             date_to=date_to,
-            transaction_type=transaction_type
+            transaction_type=transaction_type,
+            filters=request.query_params,
         )
 
         return Response({
@@ -101,7 +102,8 @@ class CategoryBreakdownAnalyticsView(APIView):
             date_from=date_from,
             date_to=date_to,
             transaction_type=transaction_type,
-            limit=limit
+            limit=limit,
+            filters=request.query_params,
         )
 
         return Response({

@@ -1,9 +1,5 @@
-# python manage.py setup_demo_data --user admin@example.com --transactions 100
+# python manage.py setup_demo_data --user demo@example.com --transactions 100
 
-"""
-Management command для создания демо-данных: категории и транзакции.
-Использование: python manage.py setup_demo_data [--user USERNAME] [--transactions N]
-"""
 import random
 from datetime import date, timedelta
 
@@ -11,98 +7,69 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from finance.models import Category, Transaction
+from organization.models import OrganizationActivity
 
 User = get_user_model()
 
 
-# Текстовые данные для категорий (расширенный набор)
 EXPENSE_CATEGORIES = [
-    'Продукты', 'Транспорт', 'Коммунальные услуги', 'Аренда',
-    'Зарплата сотрудникам', 'Реклама и маркетинг', 'Оборудование',
-    'Канцелярия', 'Интернет и связь', 'Прочие расходы',
-    'Налоги', 'Страховка', 'Обучение', 'Медицина', 'Подписки'
+    'Office supplies', 'Transport', 'Utilities', 'Rent', 'Payroll',
+    'Marketing', 'Equipment', 'Stationery', 'Internet', 'Misc expenses',
+    'Taxes', 'Insurance', 'Training', 'Healthcare', 'Subscriptions',
 ]
 
 INCOME_CATEGORIES = [
-    'Продажа товаров', 'Оказание услуг', 'Аванс',
-    'Инвестиции', 'Прочие доходы', 'Возврат', 'Дивиденды'
+    'Product sales', 'Services', 'Advance payment', 'Investments',
+    'Other income', 'Refund', 'Dividends',
 ]
 
-# Текстовые данные для описаний транзакций
 EXPENSE_DESCRIPTIONS = [
-    'Закупка продуктов для офиса', 'Такси до клиента', 'Оплата электричества',
-    'Аренда помещения за месяц', 'Зарплата менеджера', 'Рекламная кампания в соцсетях',
-    'Новый ноутбук для сотрудника', 'Бумага и картриджи', 'Интернет провайдер',
-    'Разовые расходы', 'УСН за квартал', 'Страховка оборудования',
-    'Курсы повышения квалификации', 'Медосмотр сотрудников', 'Подписка на сервис'
+    'Office supplies purchase', 'Taxi to client', 'Electricity payment',
+    'Monthly rent', 'Manager salary', 'Social media campaign',
+    'New laptop', 'Paper and cartridges', 'Internet provider',
+    'One-time expense', 'Quarterly tax payment', 'Equipment insurance',
+    'Training course', 'Employee medical check', 'Service subscription',
 ]
 
 INCOME_DESCRIPTIONS = [
-    'Продажа товара клиенту', 'Консультационные услуги', 'Предоплата от заказчика',
-    'Доход от вложений', 'Прочий доход', 'Возврат от поставщика',
-    'Выплата дивидендов'
+    'Product sale', 'Consulting services', 'Customer prepayment',
+    'Investment income', 'Other income', 'Supplier refund', 'Dividend payout',
 ]
 
-# Описания без привязки к категории (универсальные)
 GENERIC_DESCRIPTIONS = [
-    'Оплата по счету', 'Ежемесячный платеж', 'Разовый платеж',
-    'Оплата услуг', 'Закупка материалов', 'Выручка за день'
+    'Invoice payment', 'Monthly payment', 'One-time payment',
+    'Service payment', 'Materials purchase', 'Daily revenue',
 ]
 
 
 def get_random_date(days_back: int = 90) -> date:
-    """Случайная дата за последние N дней."""
     return date.today() - timedelta(days=random.randint(0, days_back))
 
 
 class Command(BaseCommand):
-    help = 'Создает демо-данные: категории и транзакции для тестирования'
+    help = 'Create demo categories and transactions for local development'
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            '--user',
-            type=str,
-            help='Email пользователя, для которого создавать транзакции (по умолчанию первый пользователь)',
-        )
-        parser.add_argument(
-            '--transactions',
-            type=int,
-            default=50,
-            help='Количество транзакций для создания (по умолчанию 50)',
-        )
-        parser.add_argument(
-            '--categories-only',
-            action='store_true',
-            help='Создать только категории, без транзакций',
-        )
-        parser.add_argument(
-            '--days',
-            type=int,
-            default=90,
-            help='За какой период создавать транзакции в днях (по умолчанию 90)',
-        )
-        parser.add_argument(
-            '--skip-if-populated',
-            action='store_true',
-            help='Пропустить создание транзакций, если у пользователя уже есть транзакции',
-        )
+        parser.add_argument('--user', type=str, help='Email of the user that will receive demo transactions')
+        parser.add_argument('--transactions', type=int, default=50, help='Number of demo transactions to create')
+        parser.add_argument('--categories-only', action='store_true', help='Create only categories')
+        parser.add_argument('--days', type=int, default=90, help='How many days back demo transactions may be created')
+        parser.add_argument('--skip-if-populated', action='store_true', help='Skip transaction creation when user already has data')
 
     def handle(self, *args, **options):
-        # 1. Создаём категории
         categories_created = self._create_categories()
-        self.stdout.write(self.style.SUCCESS(f'Категории: создано {categories_created} новых.'))
+        self.stdout.write(self.style.SUCCESS(f'Categories created: {categories_created}'))
 
         if options['categories_only']:
             return
 
-        # 2. Создаём транзакции
         user = self._get_user(options['user'])
         if not user:
-            self.stdout.write(self.style.WARNING('Пользователи не найдены. Создайте пользователя для генерации транзакций.'))
+            self.stdout.write(self.style.WARNING('No users found. Create a user before generating demo transactions.'))
             return
 
         if options.get('skip_if_populated') and Transaction.objects.filter(user=user).exists():
-            self.stdout.write(self.style.SUCCESS(f'У пользователя {user.email} уже есть транзакции. Пропуск.'))
+            self.stdout.write(self.style.SUCCESS(f'User {user.email} already has transactions. Skipping.'))
             return
 
         transactions_created = self._create_transactions(
@@ -110,17 +77,16 @@ class Command(BaseCommand):
             count=options['transactions'],
             days_back=options['days'],
         )
-        self.stdout.write(self.style.SUCCESS(f'Транзакции: создано {transactions_created} для пользователя {user.email}.'))
+        self.stdout.write(self.style.SUCCESS(f'Transactions created for {user.email}: {transactions_created}'))
 
     def _create_categories(self) -> int:
-        """Создаёт системные категории, если их ещё нет."""
         count = 0
         for name in EXPENSE_CATEGORIES:
             _, created = Category.objects.get_or_create(
                 name=name,
                 category_type=Category.CategoryType.EXPENSE,
                 is_system=True,
-                defaults={'user': None}
+                defaults={'user': None},
             )
             if created:
                 count += 1
@@ -130,7 +96,7 @@ class Command(BaseCommand):
                 name=name,
                 category_type=Category.CategoryType.INCOME,
                 is_system=True,
-                defaults={'user': None}
+                defaults={'user': None},
             )
             if created:
                 count += 1
@@ -138,34 +104,35 @@ class Command(BaseCommand):
         return count
 
     def _get_user(self, email: str | None):
-        """Возвращает пользователя по email или первого в БД."""
         if email:
             return User.objects.filter(email=email).first()
         return User.objects.first()
 
     def _create_transactions(self, user, count: int, days_back: int) -> int:
-        """Создаёт случайные транзакции для пользователя."""
         expense_cats = list(Category.objects.filter(
             category_type=Category.CategoryType.EXPENSE,
-            is_system=True
+            is_system=True,
         ))
         income_cats = list(Category.objects.filter(
             category_type=Category.CategoryType.INCOME,
-            is_system=True
+            is_system=True,
         ))
 
         if not expense_cats or not income_cats:
-            self.stdout.write(self.style.WARNING('Нет категорий для транзакций. Сначала выполните setup_categories.'))
+            self.stdout.write(self.style.WARNING('Categories are missing. Run setup_categories first.'))
             return 0
 
         payment_methods = [
             Transaction.PaymentMethod.CASH,
             Transaction.PaymentMethod.NON_CASH,
         ]
+        org_activities = list(
+            OrganizationActivity.objects.filter(profile__user=user).select_related('activity')
+        )
 
         created = 0
         for _ in range(count):
-            is_income = random.random() < 0.4  # 40% доходов, 60% расходов
+            is_income = random.random() < 0.4
             if is_income:
                 category = random.choice(income_cats)
                 amount = random.randint(500, 150000) / 100
@@ -175,9 +142,9 @@ class Command(BaseCommand):
                 amount = random.randint(100, 80000) / 100
                 descriptions = EXPENSE_DESCRIPTIONS + GENERIC_DESCRIPTIONS
 
-            description = random.choice(descriptions)
-            if len(description) > 100:
-                description = description[:100]
+            description = random.choice(descriptions)[:100]
+            is_business = bool(org_activities) and random.random() < 0.9
+            activity_code = random.choice(org_activities).activity if is_business else None
 
             Transaction.objects.create(
                 user=user,
@@ -187,9 +154,9 @@ class Command(BaseCommand):
                 description=description,
                 transaction_date=get_random_date(days_back),
                 payment_method=random.choice(payment_methods),
-                is_business=random.random() < 0.9,
+                is_business=is_business,
                 is_taxable=True,
-                activity_code=None,
+                activity_code=activity_code,
             )
             created += 1
 

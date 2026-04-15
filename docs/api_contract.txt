@@ -100,7 +100,9 @@ PATCH /api/organization/profile/
     "tax_period_custom_day"?: number 1-31
   }
   Validation: if tax_period_type=preset then tax_period_preset required;
-               if tax_period_type=custom then tax_period_custom_day required (1-31)
+               if tax_period_type=custom then tax_period_custom_day required (1-31);
+               if tax_period_type=preset then tax_period_custom_day is optional and
+               shifts the start day for monthly/quarterly/yearly cycles
 
 GET /api/organization/status/
   Auth: Required (no onboarding check)

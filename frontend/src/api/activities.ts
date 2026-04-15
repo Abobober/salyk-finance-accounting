@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiRequest, toQueryString } from './client'
 
 export interface ActivityCode {
   id: number
@@ -7,13 +7,13 @@ export interface ActivityCode {
   name: string
 }
 
-/** GET /api/activities/ - список видов деятельности ГКЭД (paginated) */
-export function listActivityCodes(params?: { search?: string; limit?: number; offset?: number }) {
-  const q = new URLSearchParams()
-  if (params?.search) q.set('search', params.search)
-  q.set('limit', String(params?.limit ?? 500))
-  if (params?.offset != null) q.set('offset', String(params.offset))
-  return apiFetch<{ results?: ActivityCode[] } | ActivityCode[]>(`/activities/?${q.toString()}`).then(
-    (r) => (Array.isArray(r) ? r : (r.results ?? []))
-  )
+interface PaginatedActivityCodes {
+  count: number
+  next: string | null
+  previous: string | null
+  results: ActivityCode[]
+}
+
+export function listActivityCodes(params: { search?: string; limit?: number; offset?: number } = {}) {
+  return apiRequest<PaginatedActivityCodes>(`/activities/${toQueryString(params)}`)
 }
