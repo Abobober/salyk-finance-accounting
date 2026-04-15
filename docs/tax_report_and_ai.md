@@ -50,6 +50,7 @@
 
 ---
 
+
 ## How the other dev can add AI report generation
 
 1. **Use existing data**
@@ -65,13 +66,3 @@
 No changes to the existing tax report or tax period code are required for that; it stays the “data layer” for any kind of report (human-readable API or AI-generated).
 
 ---
-
-## Summary
-
-| Concern | Answer |
-|--------|--------|
-| Does current code block AI report generation? | No. |
-| Can AI use the same period logic? | Yes (`tax_period_utils`). |
-| Can AI use the same report data? | Yes (service or HTTP). |
-| Is there a “report format” that AI must follow? | No; current API is data-only. |
-| Do we need to change existing code for AI? | No; add new endpoints/tasks that consume existing data. |
