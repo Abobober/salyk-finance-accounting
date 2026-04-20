@@ -13,4 +13,5 @@ django-environ==0.12.1
 pypdf==6.7.0
 redis==5.2.1
 celery==5.4.0
+gunicorn==23.0.0
 

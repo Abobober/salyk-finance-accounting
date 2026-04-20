@@ -203,3 +203,57 @@ git add .
 git commit -m "feat: short description"
 git push origin feature/short-description
 ```
+
+## Docker deployment
+
+This repository now includes a full `docker-compose.yml` for hosting the whole stack together:
+
+- `gateway` - Nginx, serves the React SPA and proxies Django
+- `backend` - Django + Gunicorn
+- `celery_worker` - background tasks
+- `celery_beat` - scheduled tasks
+- `db` - PostgreSQL
+- `redis` - Redis broker/cache
+- `tg_bot` - Telegram bot
+
+### Quick start
+
+1. Update `.env.docker` before deployment:
+   - set a strong `SECRET_KEY`
+   - set real `ALLOWED_HOSTS`
+   - set real `CSRF_TRUSTED_ORIGINS`
+   - fill `BOT_TOKEN` if the Telegram bot should run
+   - if you use HTTPS, also set:
+     - `SECURE_SSL_REDIRECT=True`
+     - `SESSION_COOKIE_SECURE=True`
+     - `CSRF_COOKIE_SECURE=True`
+     - `SECURE_HSTS_SECONDS=31536000`
+2. Build and start everything:
+
+```powershell
+docker compose up --build -d
+```
+
+3. Open the app:
+   - frontend: `http://YOUR_SERVER_IP/`
+   - admin: `http://YOUR_SERVER_IP/admin/`
+   - api: `http://YOUR_SERVER_IP/api/`
+
+### Useful commands
+
+```powershell
+docker compose logs -f backend
+docker compose logs -f gateway
+docker compose ps
+docker compose down
+```
+
+### VPS checklist
+
+- open inbound port `80`
+- point your domain to the server IP
+- put the domain into `ALLOWED_HOSTS`
+- put `http://your-domain` or `https://your-domain` into `CSRF_TRUSTED_ORIGINS`
+- if HTTPS is needed, place Cloudflare/Nginx Proxy Manager/Caddy in front of this stack
+
+Detailed VPS notes: `docs/DEPLOY_VPS.md`
