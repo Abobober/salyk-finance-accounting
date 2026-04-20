@@ -17,6 +17,7 @@ from .dashboard import (
     DashboardTotalsSerializer,
 )
 from .tax_report import TaxReportResponseSerializer
+from .tax_report_v2 import TaxReportV2ResponseSerializer
 from .transaction import TransactionSerializer
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     'PeriodStatsSerializer',
     'PeriodChangeSerializer',
     'TaxReportResponseSerializer',
+    'TaxReportV2ResponseSerializer',
 ]
