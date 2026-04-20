@@ -16,7 +16,7 @@ OPENROUTER_API_KEY = env('OPENROUTER_API_KEY')
 OPENROUTER_MODEL = env('OPENROUTER_MODEL', default='openrouter/free')
 OPENROUTER_FALLBACK_MODELS = env.list(
     'OPENROUTER_FALLBACK_MODELS',
-    default=['stepfun/step-3.5-flash:free'],
+    default=['openai/gpt-oss-120b:free'],
 )
 OPENROUTER_APP_NAME = env('OPENROUTER_APP_NAME', default='finance-accounting')
 OPENROUTER_SITE_URL = env('OPENROUTER_SITE_URL', default='http://localhost')
