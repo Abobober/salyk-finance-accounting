@@ -55,12 +55,13 @@ import {
 } from './api/organization'
 import { generateUnifiedTaxReport, type UnifiedTaxReportResponse } from './api/taxReports'
 import { getTelegramLinkToken } from './api/telegram'
-import { Dialog, Section, TransactionForm } from './components'
+import { ActivityPicker, ChatMessageBody, Dialog, Section, TransactionForm } from './components'
 import {
   buildAnalyticsParams,
   buildDashboardParams,
   buildReportParams,
   createAiSessionId,
+  formatAiAssistantReply,
   formatCurrency,
   formatDateInput,
   formatDateLabel,
@@ -76,6 +77,8 @@ import {
   type OrganizationActivityDraft,
   type ReportControls,
 } from './lib'
+
+const ACTIVITY_SEARCH_LIMIT = 24
 
 export function WorkspaceScreen({
   user,
@@ -121,6 +124,9 @@ export function WorkspaceScreen({
   const [taxPeriod, setTaxPeriod] = useState<TaxPeriodResponse | null>(null)
   const [activitySearch, setActivitySearch] = useState('')
   const [activityOptions, setActivityOptions] = useState<ActivityCode[]>([])
+  const [activityOptionsCount, setActivityOptionsCount] = useState(0)
+  const [activitySearchLoading, setActivitySearchLoading] = useState(false)
+  const [selectedActivityOption, setSelectedActivityOption] = useState<ActivityCode | null>(null)
   const [activityDraft, setActivityDraft] = useState<OrganizationActivityDraft>({
     activity: 0,
     cash_tax_rate: '3',
@@ -167,7 +173,7 @@ export function WorkspaceScreen({
         listCategories({ limit: 100 }),
         listOrganizationActivities({ limit: 100 }),
         getOrganizationProfile(),
-        listActivityCodes({ limit: 30 }),
+        listActivityCodes({ limit: ACTIVITY_SEARCH_LIMIT }),
         getTaxPeriod().catch(() => null),
       ])
 
@@ -175,6 +181,7 @@ export function WorkspaceScreen({
       setActivities(activityResponse.results)
       setOrganizationProfile(organizationResponse)
       setActivityOptions(activityOptionsResponse.results)
+      setActivityOptionsCount(activityOptionsResponse.count)
       setTaxPeriod(taxPeriodResponse)
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить настройки рабочего пространства.')
@@ -296,14 +303,18 @@ export function WorkspaceScreen({
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
+      setActivitySearchLoading(true)
       try {
         const response = await listActivityCodes({
           search: activitySearch || undefined,
-          limit: 30,
+          limit: ACTIVITY_SEARCH_LIMIT,
         })
         setActivityOptions(response.results)
+        setActivityOptionsCount(response.count)
       } catch {
         // Quiet while searching.
+      } finally {
+        setActivitySearchLoading(false)
       }
     }, 250)
 
@@ -490,6 +501,8 @@ export function WorkspaceScreen({
         non_cash_tax_rate: '0',
         is_primary: false,
       })
+      setSelectedActivityOption(null)
+      setActivitySearch('')
       pushNotice('success', 'Вид деятельности добавлен.')
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось добавить вид деятельности.')
@@ -543,7 +556,10 @@ export function WorkspaceScreen({
     setAiLoading(true)
     try {
       const response = await consultAi(message, aiSessionId)
-      setAiMessages((current) => [...current, { role: 'assistant', text: response.assistant }])
+      setAiMessages((current) => [
+        ...current,
+        { role: 'assistant', text: formatAiAssistantReply(response.assistant) },
+      ])
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'AI-помощник сейчас недоступен.')
     } finally {
@@ -1392,7 +1408,7 @@ export function WorkspaceScreen({
                 aiMessages.map((message, index) => (
                   <article key={`${message.role}-${index}`} className={`chat-bubble ${message.role}`}>
                     <span>{message.role === 'user' ? 'Вы' : 'Помощник'}</span>
-                    <p>{message.text}</p>
+                    <ChatMessageBody text={message.text} />
                   </article>
                 ))
               ) : (
@@ -1451,6 +1467,14 @@ export function WorkspaceScreen({
                 Сохранить профиль
               </button>
             </form>
+
+            <div className="soft-card">
+              <p className="soft-card-title">Наименование организации</p>
+              <p className="muted">
+                Сейчас в профиле редактируются только данные контактного лица. Отдельного поля для названия
+                компании в API пока нет, поэтому в отчете используется email аккаунта.
+              </p>
+            </div>
 
             <div className="soft-card">
               <p className="soft-card-title">Telegram-бот</p>
@@ -1660,7 +1684,28 @@ export function WorkspaceScreen({
 
           {activeTab === 'profile' ? (
           <Section title="Виды деятельности">
-            <form className="stack-sm" onSubmit={(event) => void handleAddActivity(event)}>
+            <form className="stack-sm activity-form" onSubmit={(event) => void handleAddActivity(event)}>
+              <ActivityPicker
+                searchValue={activitySearch}
+                onSearchChange={(value) => {
+                  setActivitySearch(value)
+                  setSelectedActivityOption(null)
+                  setActivityDraft((current) => ({ ...current, activity: 0 }))
+                }}
+                options={activityOptions}
+                selectedActivity={selectedActivityOption}
+                onSelect={(activity) => {
+                  setSelectedActivityOption(activity)
+                  setActivityDraft((current) => ({ ...current, activity: activity.id }))
+                }}
+                onClear={() => {
+                  setActivitySearch('')
+                  setSelectedActivityOption(null)
+                  setActivityDraft((current) => ({ ...current, activity: 0 }))
+                }}
+                totalCount={activityOptionsCount}
+                loading={activitySearchLoading}
+              />
               <label className="field">
                 <span>Поиск</span>
                 <input

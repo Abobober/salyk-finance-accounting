@@ -79,6 +79,104 @@ export function createAiSessionId() {
   return `sess_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
+function cleanupAiLine(line: string) {
+  return line
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^\*+\s*/, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\\\[/g, '')
+    .replace(/\\\]/g, '')
+    .replace(/\\\(/g, '')
+    .replace(/\\\)/g, '')
+    .replace(/\bcash\b/gi, 'наличные')
+    .replace(/\bnon[- ]?cash\b/gi, 'безнал')
+    .replace(/Cash_доход/gi, 'Наличный доход')
+    .replace(/NonCash_доход/gi, 'Безналичный доход')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function shortenAiLine(line: string, maxLength = 170) {
+  if (line.length <= maxLength) {
+    return line
+  }
+
+  const shortened = line.slice(0, maxLength).trim()
+  const lastSpace = shortened.lastIndexOf(' ')
+  return `${(lastSpace > 60 ? shortened.slice(0, lastSpace) : shortened).trim()}...`
+}
+
+export function formatAiAssistantReply(raw: string) {
+  const normalized = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/[\u00A0\u202F\u2009]/g, ' ')
+    .replace(/([.!?])\s+(?=\d+\.\s+[А-ЯA-Z])/g, '$1\n')
+
+  const skipSectionPattern =
+    /частые вопросы|faq|пример расч[её]та|что требуется|следующий шаг|если у вас уже есть|готов предоставить/i
+  const skipLinePattern =
+    /^[-=]{3,}$|^какие элементы входят|^формула расч[её]та|^определяем суммы$|^вычисляем налог$|^оплата обязательных взносов$|^итого к уплате/i
+
+  const collected: string[] = []
+  let skipSection = false
+
+  for (const rawLine of normalized.split('\n')) {
+    if (rawLine.includes('|')) {
+      continue
+    }
+
+    const cleaned = cleanupAiLine(rawLine)
+    if (!cleaned) {
+      continue
+    }
+
+    const headingText = cleaned.replace(/^\d+\.\s*/, '')
+    const isSectionHeading = rawLine.trim().startsWith('#') || /^\d+\.\s+/.test(cleaned)
+
+    if (isSectionHeading && skipSectionPattern.test(headingText)) {
+      skipSection = true
+      continue
+    }
+
+    if (isSectionHeading) {
+      skipSection = false
+    }
+
+    if (skipSection || skipLinePattern.test(headingText)) {
+      continue
+    }
+
+    collected.push(cleaned)
+  }
+
+  const deduped = collected.filter((line, index, all) => {
+    const normalizedLine = line.toLowerCase()
+    if (normalizedLine.length < 12) {
+      return false
+    }
+    return all.findIndex((item) => item.toLowerCase() === normalizedLine) === index
+  })
+
+  if (!deduped.length) {
+    return cleanupAiLine(raw).slice(0, 400)
+  }
+
+  const summary = shortenAiLine(
+    deduped[0].replace(/^ответ по расч[её]ту налога\s*[—-]\s*/i, '').replace(/^ответ\s*[—-]\s*/i, ''),
+    150,
+  )
+
+  const details = deduped
+    .slice(1)
+    .filter((line) => line.toLowerCase() !== summary.toLowerCase())
+    .slice(0, 4)
+    .map((line) => `- ${shortenAiLine(line)}`)
+
+  return [summary, ...details].join('\n')
+}
+
 export function getPresetRange(preset: Exclude<DashboardPreset, 'custom'>) {
   const today = new Date()
   const end = formatDateInput(today)

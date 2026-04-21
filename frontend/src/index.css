@@ -772,6 +772,81 @@ pre {
   gap: 0.5rem;
 }
 
+.activity-picker {
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.activity-selection {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  background: rgba(29, 127, 95, 0.08);
+  border: 1px solid rgba(29, 127, 95, 0.18);
+}
+
+.activity-selection span,
+.activity-result small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.activity-selection strong {
+  display: block;
+  margin: 0.14rem 0;
+}
+
+.activity-selection p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.activity-results {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 0.1rem;
+}
+
+.activity-result {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.82rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.activity-result:hover,
+.activity-result.active {
+  border-color: rgba(29, 127, 95, 0.32);
+  background: rgba(29, 127, 95, 0.08);
+}
+
+.activity-result-code {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.22rem 0.58rem;
+  background: rgba(33, 83, 143, 0.08);
+  color: var(--sky);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.activity-picker-footer p {
+  margin: 0;
+}
+
 .mini-table-row {
   border-bottom: 1px solid var(--line);
   padding-bottom: 0.75rem;
@@ -823,6 +898,29 @@ pre {
   margin-bottom: 0.3rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.chat-message-body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.chat-message-body p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.chat-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--ink-soft);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.activity-form > .field,
+.activity-form > .field-grid.two > .field:first-child {
+  display: none;
 }
 
 .empty-state {

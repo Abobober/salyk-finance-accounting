@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { listActivityCodes, type ActivityCode } from './api/activities'
+import type { UserProfile } from './api/auth'
 import {
   createOrganizationActivity,
   deleteOrganizationActivity,
@@ -14,9 +15,10 @@ import {
   type OrganizationStatusResponse,
   type TaxPeriodPreset,
 } from './api/organization'
+import { ActivityPicker, Section } from './components'
 import type { NoticeTone, OrganizationActivityDraft } from './lib'
-import type { UserProfile } from './api/auth'
-import { Section } from './components'
+
+const ACTIVITY_SEARCH_LIMIT = 24
 
 export function OnboardingScreen({
   user,
@@ -33,7 +35,10 @@ export function OnboardingScreen({
   const [profile, setProfile] = useState<OrganizationProfile | null>(null)
   const [activities, setActivities] = useState<OrganizationActivity[]>([])
   const [activityOptions, setActivityOptions] = useState<ActivityCode[]>([])
+  const [activityOptionsCount, setActivityOptionsCount] = useState(0)
   const [activitySearch, setActivitySearch] = useState('')
+  const [activitySearchLoading, setActivitySearchLoading] = useState(false)
+  const [selectedActivityOption, setSelectedActivityOption] = useState<ActivityCode | null>(null)
   const [draft, setDraft] = useState<OrganizationActivityDraft>({
     activity: 0,
     cash_tax_rate: '3',
@@ -48,14 +53,15 @@ export function OnboardingScreen({
         getOrganizationStatus(),
         getOrganizationProfile(),
         listOrganizationActivities({ limit: 100 }),
-        listActivityCodes({ limit: 30 }),
+        listActivityCodes({ limit: ACTIVITY_SEARCH_LIMIT }),
       ])
       setStatus(statusResponse)
       setProfile(profileResponse)
       setActivities(activityResponse.results)
       setActivityOptions(activityCodesResponse.results)
+      setActivityOptionsCount(activityCodesResponse.count)
     } catch (error) {
-      pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить настройку.')
+      pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить первичную настройку.')
     } finally {
       setLoading(false)
     }
@@ -67,23 +73,25 @@ export function OnboardingScreen({
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
+      setActivitySearchLoading(true)
       try {
         const response = await listActivityCodes({
           search: activitySearch || undefined,
-          limit: 30,
+          limit: ACTIVITY_SEARCH_LIMIT,
         })
         setActivityOptions(response.results)
+        setActivityOptionsCount(response.count)
       } catch {
         // Quiet while typing.
+      } finally {
+        setActivitySearchLoading(false)
       }
     }, 250)
 
     return () => window.clearTimeout(timer)
   }, [activitySearch])
 
-  const saveProfile = async (
-    data: Parameters<typeof updateOrganizationProfile>[0],
-  ) => {
+  const saveProfile = async (data: Parameters<typeof updateOrganizationProfile>[0]) => {
     setSaving(true)
     try {
       const response = await updateOrganizationProfile(data)
@@ -116,6 +124,8 @@ export function OnboardingScreen({
         non_cash_tax_rate: '0',
         is_primary: false,
       })
+      setSelectedActivityOption(null)
+      setActivitySearch('')
       setStatus(await getOrganizationStatus())
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось добавить вид деятельности.')
@@ -241,50 +251,56 @@ export function OnboardingScreen({
 
             {profile.tax_period_type === 'preset' ? (
               <div className="stack-sm">
-              <div className="field-grid three">
-                {(['monthly', 'quarterly', 'yearly'] as TaxPeriodPreset[]).map((preset) => (
+                <div className="field-grid three">
+                  {(['monthly', 'quarterly', 'yearly'] as TaxPeriodPreset[]).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={profile.tax_period_preset === preset ? 'choice-card active compact' : 'choice-card compact'}
+                      onClick={() => void saveProfile({ tax_period_preset: preset })}
+                      disabled={saving}
+                    >
+                      <strong>
+                        {preset === 'monthly'
+                          ? 'Ежемесячно'
+                          : preset === 'quarterly'
+                            ? 'Ежеквартально'
+                            : 'Ежегодно'}
+                      </strong>
+                    </button>
+                  ))}
+                </div>
+                <div className="inline-form">
+                  <label className="field">
+                    <span>День начала периода</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="1"
+                      value={profile.tax_period_custom_day ?? ''}
+                      onChange={(event) =>
+                        setProfile({
+                          ...profile,
+                          tax_period_custom_day: event.target.value ? Number(event.target.value) : null,
+                        })
+                      }
+                    />
+                  </label>
                   <button
-                    key={preset}
                     type="button"
-                    className={profile.tax_period_preset === preset ? 'choice-card active compact' : 'choice-card compact'}
-                    onClick={() => void saveProfile({ tax_period_preset: preset })}
-                    disabled={saving}
-                  >
-                    <strong>{preset === 'monthly' ? 'Ежемесячно' : preset === 'quarterly' ? 'Ежеквартально' : 'Ежегодно'}</strong>
-                  </button>
-                ))}
-              </div>
-              <div className="inline-form">
-                <label className="field">
-                  <span>День начала периода</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="1"
-                    value={profile.tax_period_custom_day ?? ''}
-                    onChange={(event) =>
-                      setProfile({
-                        ...profile,
-                        tax_period_custom_day: event.target.value ? Number(event.target.value) : null,
+                    className="secondary-button"
+                    onClick={() =>
+                      void saveProfile({
+                        tax_period_preset: profile.tax_period_preset ?? 'monthly',
+                        tax_period_custom_day: profile.tax_period_custom_day ?? null,
                       })
                     }
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    void saveProfile({
-                      tax_period_preset: profile.tax_period_preset ?? 'monthly',
-                      tax_period_custom_day: profile.tax_period_custom_day ?? null,
-                    })
-                  }
-                  disabled={saving}
-                >
-                  Сохранить
-                </button>
-              </div>
+                    disabled={saving}
+                  >
+                    Сохранить
+                  </button>
+                </div>
               </div>
             ) : null}
 
@@ -333,7 +349,7 @@ export function OnboardingScreen({
                     <div>
                       <strong>{activity.activity_name}</strong>
                       <p>
-                        Наличные {activity.cash_tax_rate}% - Безнал {activity.non_cash_tax_rate}%
+                        Наличные {activity.cash_tax_rate}% · Безнал {activity.non_cash_tax_rate}%
                       </p>
                     </div>
                     <div className="mini-table-actions">
@@ -348,12 +364,16 @@ export function OnboardingScreen({
                                 is_primary: true,
                               })
                               setActivities((current) =>
-                                current.map((item) => (item.id === activity.id ? updated : { ...item, is_primary: false })),
+                                current.map((item) =>
+                                  item.id === activity.id ? updated : { ...item, is_primary: false },
+                                ),
                               )
                             } catch (error) {
                               pushNotice(
                                 'error',
-                                error instanceof Error ? error.message : 'Не удалось назначить основной вид деятельности.',
+                                error instanceof Error
+                                  ? error.message
+                                  : 'Не удалось назначить основной вид деятельности.',
                               )
                             }
                           }}
@@ -385,32 +405,30 @@ export function OnboardingScreen({
             ) : null}
 
             <form className="stack-sm" onSubmit={addActivity}>
-              <label className="field">
-                <span>Поиск по коду или названию</span>
-                <input
-                  value={activitySearch}
-                  onChange={(event) => setActivitySearch(event.target.value)}
-                  placeholder="Начните вводить..."
-                />
-              </label>
+              <ActivityPicker
+                searchValue={activitySearch}
+                onSearchChange={(value) => {
+                  setActivitySearch(value)
+                  setSelectedActivityOption(null)
+                  setDraft((current) => ({ ...current, activity: 0 }))
+                }}
+                options={activityOptions}
+                selectedActivity={selectedActivityOption}
+                onSelect={(activity) => {
+                  setSelectedActivityOption(activity)
+                  setDraft((current) => ({ ...current, activity: activity.id }))
+                }}
+                onClear={() => {
+                  setActivitySearch('')
+                  setSelectedActivityOption(null)
+                  setDraft((current) => ({ ...current, activity: 0 }))
+                }}
+                totalCount={activityOptionsCount}
+                loading={activitySearchLoading}
+                disabled={saving}
+              />
 
               <div className="field-grid two">
-                <label className="field">
-                  <span>Вид деятельности</span>
-                  <select
-                    value={draft.activity || ''}
-                    onChange={(event) => setDraft({ ...draft, activity: Number(event.target.value) })}
-                    required
-                  >
-                    <option value="">Выберите вид деятельности</option>
-                    {activityOptions.map((activity) => (
-                      <option key={activity.id} value={activity.id}>
-                        {activity.code} - {activity.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
                 <label className="field">
                   <span>Налог наличными</span>
                   <input

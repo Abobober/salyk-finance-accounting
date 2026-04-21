@@ -1,4 +1,5 @@
-import type { FormEvent, ReactNode } from 'react'
+import { Fragment, type FormEvent, type ReactNode } from 'react'
+import type { ActivityCode } from './api/activities'
 import type { Category, TransactionDraft, TransactionType } from './api/finance'
 import type { OrganizationActivity } from './api/organization'
 import { getActivityLabel, getMatchingCategories } from './lib'
@@ -55,6 +56,188 @@ export function Dialog({
           </button>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+function renderInlineText(text: string) {
+  const chunks = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean)
+
+  return chunks.map((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**')) {
+      return <strong key={`${chunk}-${index}`}>{chunk.slice(2, -2)}</strong>
+    }
+    if (chunk.startsWith('`') && chunk.endsWith('`')) {
+      return <code key={`${chunk}-${index}`}>{chunk.slice(1, -1)}</code>
+    }
+    return <Fragment key={`${chunk}-${index}`}>{chunk}</Fragment>
+  })
+}
+
+function parseMessageBlocks(text: string) {
+  const normalized = text.replace(/\r\n/g, '\n').trim()
+  if (!normalized) {
+    return []
+  }
+
+  const blocks: Array<{ type: 'paragraph'; text: string } | { type: 'list'; items: string[] }> = []
+  let paragraph: string[] = []
+  let list: string[] = []
+
+  const flushParagraph = () => {
+    if (!paragraph.length) {
+      return
+    }
+    blocks.push({ type: 'paragraph', text: paragraph.join(' ') })
+    paragraph = []
+  }
+
+  const flushList = () => {
+    if (!list.length) {
+      return
+    }
+    blocks.push({ type: 'list', items: list })
+    list = []
+  }
+
+  for (const rawLine of normalized.split('\n')) {
+    const line = rawLine.trim()
+    if (!line) {
+      flushParagraph()
+      flushList()
+      continue
+    }
+
+    const listMatch = line.match(/^(?:[-*\u2022]|\d+[.)])\s+(.*)$/)
+    if (listMatch) {
+      flushParagraph()
+      list.push(listMatch[1].trim())
+      continue
+    }
+
+    flushList()
+    paragraph.push(line)
+  }
+
+  flushParagraph()
+  flushList()
+
+  return blocks
+}
+
+export function ChatMessageBody({ text }: { text: string }) {
+  const blocks = parseMessageBlocks(text)
+
+  if (!blocks.length) {
+    return null
+  }
+
+  return (
+    <div className="chat-message-body">
+      {blocks.map((block, index) =>
+        block.type === 'list' ? (
+          <ul key={`list-${index}`} className="chat-list">
+            {block.items.map((item, itemIndex) => (
+              <li key={`item-${index}-${itemIndex}`}>{renderInlineText(item)}</li>
+            ))}
+          </ul>
+        ) : (
+          <p key={`paragraph-${index}`}>{renderInlineText(block.text)}</p>
+        ),
+      )}
+    </div>
+  )
+}
+
+function formatActivityOptionLabel(activity: ActivityCode) {
+  return `${activity.code} - ${activity.name}`
+}
+
+export function ActivityPicker({
+  searchValue,
+  onSearchChange,
+  options,
+  selectedActivity,
+  onSelect,
+  onClear,
+  totalCount,
+  loading,
+  disabled = false,
+}: {
+  searchValue: string
+  onSearchChange: (value: string) => void
+  options: ActivityCode[]
+  selectedActivity: ActivityCode | null
+  onSelect: (activity: ActivityCode) => void
+  onClear: () => void
+  totalCount: number
+  loading: boolean
+  disabled?: boolean
+}) {
+  const hasSearch = searchValue.trim().length > 0
+
+  return (
+    <div className="activity-picker stack-sm">
+      <label className="field">
+        <span>Поиск по коду или названию</span>
+        <input
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Например: 47.91 или торговля"
+          disabled={disabled}
+        />
+      </label>
+
+      {selectedActivity ? (
+        <div className="activity-selection">
+          <div>
+            <span>Выбрано</span>
+            <strong>{formatActivityOptionLabel(selectedActivity)}</strong>
+            <p>Раздел: {selectedActivity.section}</p>
+          </div>
+          <button type="button" className="ghost-button" onClick={onClear} disabled={disabled}>
+            Сбросить
+          </button>
+        </div>
+      ) : null}
+
+      <div className="activity-results" role="list">
+        {options.length ? (
+          options.map((activity) => {
+            const isActive = activity.id === selectedActivity?.id
+
+            return (
+              <button
+                key={activity.id}
+                type="button"
+                className={isActive ? 'activity-result active' : 'activity-result'}
+                onClick={() => onSelect(activity)}
+                disabled={disabled}
+              >
+                <span className="activity-result-code">{activity.code}</span>
+                <strong>{activity.name}</strong>
+                <small>Раздел: {activity.section}</small>
+              </button>
+            )
+          })
+        ) : (
+          <div className="empty-state shallow">
+            {loading
+              ? 'Ищем подходящие виды деятельности...'
+              : hasSearch
+                ? 'Ничего не найдено. Попробуйте код или другое ключевое слово.'
+                : 'Справочник большой, начните вводить код или часть названия.'}
+          </div>
+        )}
+      </div>
+
+      <div className="activity-picker-footer">
+        <p className="muted">
+          {hasSearch
+            ? `Найдено ${totalCount}. ${totalCount > options.length ? `Показаны первые ${options.length}. Уточните поиск, если нужно.` : 'Можно выбрать любой вариант из списка.'}`
+            : 'Начните искать по коду или названию, чтобы быстро найти нужный вид деятельности.'}
+        </p>
       </div>
     </div>
   )
