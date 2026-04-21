@@ -37,6 +37,7 @@ bootstrap_app() {
   python manage.py migrate --noinput
   python manage.py collectstatic --noinput
   python manage.py import_activities_code
+  python manage.py setup_categories
 
   if [ "${LOAD_DEMO_DATA:-false}" = "true" ]; then
     python manage.py setup_demo_data --skip-if-populated
