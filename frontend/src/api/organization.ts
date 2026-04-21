@@ -15,6 +15,11 @@ export interface OrganizationProfile {
   tax_period_preset: TaxPeriodPreset | null
   tax_period_preset_display?: string
   tax_period_custom_day: number | null
+  inn?: string | null
+  taxpayer_name?: string | null
+  tax_authority_code?: string | null
+  tax_authority_name?: string | null
+  contact_phone?: string | null
 }
 
 export interface OrganizationStatusResponse {
@@ -64,6 +69,11 @@ export function updateOrganizationProfile(
     tax_period_type: TaxPeriodType | null
     tax_period_preset: TaxPeriodPreset | null
     tax_period_custom_day: number | null
+    inn: string
+    taxpayer_name: string
+    tax_authority_code: string
+    tax_authority_name: string
+    contact_phone: string
   }>,
 ) {
   return apiRequest<OrganizationProfile>('/organization/profile/', {

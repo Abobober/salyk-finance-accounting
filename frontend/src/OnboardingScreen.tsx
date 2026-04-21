@@ -18,7 +18,7 @@ import {
 import { ActivityPicker, Section } from './components'
 import type { NoticeTone, OrganizationActivityDraft } from './lib'
 
-const ACTIVITY_SEARCH_LIMIT = 24
+const ACTIVITY_SEARCH_LIMIT = 50
 
 export function OnboardingScreen({
   user,
@@ -36,6 +36,7 @@ export function OnboardingScreen({
   const [activities, setActivities] = useState<OrganizationActivity[]>([])
   const [activityOptions, setActivityOptions] = useState<ActivityCode[]>([])
   const [activityOptionsCount, setActivityOptionsCount] = useState(0)
+  const [activityOffset, setActivityOffset] = useState(0)
   const [activitySearch, setActivitySearch] = useState('')
   const [activitySearchLoading, setActivitySearchLoading] = useState(false)
   const [selectedActivityOption, setSelectedActivityOption] = useState<ActivityCode | null>(null)
@@ -53,13 +54,14 @@ export function OnboardingScreen({
         getOrganizationStatus(),
         getOrganizationProfile(),
         listOrganizationActivities({ limit: 100 }),
-        listActivityCodes({ limit: ACTIVITY_SEARCH_LIMIT }),
+        listActivityCodes({ limit: ACTIVITY_SEARCH_LIMIT, offset: 0 }),
       ])
       setStatus(statusResponse)
       setProfile(profileResponse)
       setActivities(activityResponse.results)
       setActivityOptions(activityCodesResponse.results)
       setActivityOptionsCount(activityCodesResponse.count)
+      setActivityOffset(0)
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить первичную настройку.')
     } finally {
@@ -78,9 +80,11 @@ export function OnboardingScreen({
         const response = await listActivityCodes({
           search: activitySearch || undefined,
           limit: ACTIVITY_SEARCH_LIMIT,
+          offset: 0,
         })
         setActivityOptions(response.results)
         setActivityOptionsCount(response.count)
+        setActivityOffset(0)
       } catch {
         // Quiet while typing.
       } finally {
@@ -101,6 +105,25 @@ export function OnboardingScreen({
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось сохранить настройки.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const loadMoreActivities = async () => {
+    const nextOffset = activityOffset + ACTIVITY_SEARCH_LIMIT
+    setActivitySearchLoading(true)
+    try {
+      const response = await listActivityCodes({
+        search: activitySearch || undefined,
+        limit: ACTIVITY_SEARCH_LIMIT,
+        offset: nextOffset,
+      })
+      setActivityOptions((current) => [...current, ...response.results])
+      setActivityOptionsCount(response.count)
+      setActivityOffset(nextOffset)
+    } catch {
+      pushNotice('error', 'Не удалось загрузить дополнительные варианты видов деятельности.')
+    } finally {
+      setActivitySearchLoading(false)
     }
   }
 
@@ -152,6 +175,13 @@ export function OnboardingScreen({
   }
 
   const activityReady = activities.some((activity) => activity.is_primary)
+  const extendedOrganizationReady = Boolean(
+    profile.inn?.trim() &&
+      profile.taxpayer_name?.trim() &&
+      profile.tax_authority_code?.trim() &&
+      profile.tax_authority_name?.trim() &&
+      profile.contact_phone?.trim(),
+  )
 
   return (
     <div className="onboarding-shell">
@@ -427,6 +457,18 @@ export function OnboardingScreen({
                 loading={activitySearchLoading}
                 disabled={saving}
               />
+              {activityOptions.length < activityOptionsCount ? (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void loadMoreActivities()}
+                  disabled={saving || activitySearchLoading}
+                >
+                  {activitySearchLoading
+                    ? 'Загружаем...'
+                    : `Показать еще (${activityOptionsCount - activityOptions.length})`}
+                </button>
+              ) : null}
 
               <div className="field-grid two">
                 <label className="field">
@@ -454,11 +496,76 @@ export function OnboardingScreen({
                 Добавить
               </button>
             </form>
+            <Section title="Реквизиты для STI-091" eyebrow="Шаг 5">
+              <div className="stack-sm">
+                <p className="muted">
+                  Эти данные обязательны для автоматического заполнения отчета по единому налогу.
+                </p>
+                <div className="field-grid two">
+                  <label className="field">
+                    <span>ИНН</span>
+                    <input
+                      value={profile.inn ?? ''}
+                      onChange={(event) => setProfile({ ...profile, inn: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Контактный телефон</span>
+                    <input
+                      value={profile.contact_phone ?? ''}
+                      onChange={(event) => setProfile({ ...profile, contact_phone: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>ФИО / Наименование налогоплательщика</span>
+                    <input
+                      value={profile.taxpayer_name ?? ''}
+                      onChange={(event) => setProfile({ ...profile, taxpayer_name: event.target.value })}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Код налогового органа</span>
+                    <input
+                      value={profile.tax_authority_code ?? ''}
+                      onChange={(event) => setProfile({ ...profile, tax_authority_code: event.target.value })}
+                      required
+                    />
+                  </label>
+                </div>
+                <label className="field">
+                  <span>Наименование налогового органа</span>
+                  <input
+                    value={profile.tax_authority_name ?? ''}
+                    onChange={(event) => setProfile({ ...profile, tax_authority_name: event.target.value })}
+                    required
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    void saveProfile({
+                      inn: profile.inn ?? '',
+                      contact_phone: profile.contact_phone ?? '',
+                      taxpayer_name: profile.taxpayer_name ?? '',
+                      tax_authority_code: profile.tax_authority_code ?? '',
+                      tax_authority_name: profile.tax_authority_name ?? '',
+                    })
+                  }
+                  disabled={saving}
+                >
+                  Сохранить реквизиты
+                </button>
+              </div>
+            </Section>
 
             <button
               type="button"
               className="primary-button"
-              disabled={saving || !profile.org_type || !profile.tax_regime || !activityReady}
+              disabled={saving || !profile.org_type || !profile.tax_regime || !activityReady || !extendedOrganizationReady}
               onClick={() => void finishOnboarding()}
             >
               Завершить
