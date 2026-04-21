@@ -1,26 +1,22 @@
-import os
+from decimal import Decimal
 
-import requests
+from django.db.models import Case, DecimalField, Sum, Value, When
+from django.db.models.functions import ExtractYear
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from config.openrouter import OpenRouterError, create_chat_completion
+from finance.models import Transaction
 from organization.models import OrganizationProfile
 
 from .models import ChatSession
 from .serializers import ChatSessionSerializer
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "stepfun/step-3.5-flash:free"
-
 
 class OpenRouterView(GenericAPIView):
-    """
-    AI-бухгалтер Кыргызстана с временной историей в RAM.
-    """
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "ai"
@@ -71,6 +67,110 @@ class OpenRouterView(GenericAPIView):
 
         return context_parts
 
+    def _build_transactions_context(self, request):
+        """Сводка транзакций пользователя для контекста модели (новые сверху)."""
+        user = request.user
+        if not user or not user.is_authenticated:
+            return []
+
+        totals_field = DecimalField(max_digits=18, decimal_places=2)
+        base_qs = Transaction.objects.filter(user=user)
+
+        totals = base_qs.aggregate(
+            total_income=Sum(
+                Case(
+                    When(transaction_type=Transaction.TransactionType.INCOME, then="amount"),
+                    default=Value(Decimal("0.00")),
+                    output_field=totals_field,
+                )
+            ),
+            total_expense=Sum(
+                Case(
+                    When(transaction_type=Transaction.TransactionType.EXPENSE, then="amount"),
+                    default=Value(Decimal("0.00")),
+                    output_field=totals_field,
+                )
+            ),
+        )
+        total_income = totals["total_income"] or Decimal("0.00")
+        total_expense = totals["total_expense"] or Decimal("0.00")
+        net_result = total_income - total_expense
+
+        yearly_totals = (
+            base_qs.annotate(year=ExtractYear("transaction_date"))
+            .values("year")
+            .annotate(
+                total_income=Sum(
+                    Case(
+                        When(transaction_type=Transaction.TransactionType.INCOME, then="amount"),
+                        default=Value(Decimal("0.00")),
+                        output_field=totals_field,
+                    )
+                ),
+                total_expense=Sum(
+                    Case(
+                        When(transaction_type=Transaction.TransactionType.EXPENSE, then="amount"),
+                        default=Value(Decimal("0.00")),
+                        output_field=totals_field,
+                    )
+                ),
+            )
+            .order_by("year")
+        )
+
+        max_rows = 500
+        batch = list(
+            base_qs
+            .select_related("category", "activity_code")
+            .order_by("-transaction_date", "-created_at")[: max_rows + 1]
+        )
+        if not batch:
+            return []
+
+        truncated = len(batch) > max_rows
+        batch = batch[:max_rows]
+
+        lines = []
+        for t in batch:
+            type_ru = "доход" if t.transaction_type == Transaction.TransactionType.INCOME else "расход"
+            pay_ru = "наличные" if t.payment_method == Transaction.PaymentMethod.CASH else "безналичные"
+            cat = t.category.name if t.category else "—"
+            desc = (t.description or "—").strip() or "—"
+            if t.activity_code:
+                act = f"{t.activity_code.code} — {t.activity_code.name}"
+            else:
+                act = "—"
+            lines.append(
+                f"{t.transaction_date} | {type_ru} | {t.amount} KGS (сом) | {pay_ru} | "
+                f"категория: {cat} | {desc} | "
+                f"бизнес: {'да' if t.is_business else 'нет'} | "
+                f"налогооблагаемая: {'да' if t.is_taxable else 'нет'} | ВД: {act}"
+            )
+
+        summary = (
+            f"агрегаты по всем транзакциям пользователя: "
+            f"итого доходов = {total_income} KGS (сом); "
+            f"итого расходов = {total_expense} KGS (сом); "
+            f"разница (доходы - расходы) = {net_result} KGS (сом)"
+        )
+        year_lines = []
+        for row in yearly_totals:
+            year = row["year"]
+            year_income = row["total_income"] or Decimal("0.00")
+            year_expense = row["total_expense"] or Decimal("0.00")
+            year_net = year_income - year_expense
+            year_lines.append(
+                f"{year}: доходы = {year_income} KGS (сом); "
+                f"расходы = {year_expense} KGS (сом); "
+                f"разница = {year_net} KGS (сом)"
+            )
+        yearly_summary = "агрегаты по годам:\n" + "\n".join(year_lines)
+
+        header = "транзакции пользователя (от новых к старым)"
+        if truncated:
+            header += f", показаны последние {max_rows} записей"
+        return [summary, yearly_summary, header + ":\n" + "\n".join(lines)]
+
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,13 +178,9 @@ class OpenRouterView(GenericAPIView):
         message = serializer.validated_data["message"]
         session_id = serializer.validated_data["session_id"]
 
-        session, _ = ChatSession.objects.get_or_create(
-            session_id=session_id
-        )  
-
+        session, _ = ChatSession.objects.get_or_create(session_id=session_id)
         history = session.history
 
-        # Формируем сообщения для модели
         messages = [
             {
                 "role": "system",
@@ -93,49 +189,34 @@ class OpenRouterView(GenericAPIView):
                     "Специализируешься на ИП и ОсОО. Отлично знаешь налоговое законодательство КР, "
                     "ГНС, отчетность, Единый налог, НДС, подоходный налог, соцфонд, страховые взносы, "
                     "ЭСФ, ЭТТН и электронные сервисы налоговой. "
-                    "Отвечай структурировано, профессионально и строго по законам КР. "
-                    "Если данных недостаточно — задай уточняющий вопрос."
-                )
+                    "Отвечай структурированно, профессионально и строго по законам КР. "
+                    "KGS, сом и сомы - это одна и та же валюта: кыргызский сом. "
+                    "Для вопросов за конкретный год используй именно строку этого года из блока 'агрегаты по годам'. "
+                    "Не подставляй общие итоги вместо годовых и не пересчитывай вручную, если агрегат уже передан. "
+                    "При расчетах по транзакциям считай суммы строго по переданному списку: "
+                    "итог доходов = сумма строк с типом 'доход', итог расходов = сумма строк с типом 'расход', "
+                    "чистый результат = доходы - расходы. "
+                    "Если данных недостаточно, задай уточняющий вопрос."
+                ),
             }
         ]
 
-        # Добавляем контекст пользователя и организации в system prompt
         user_context = self._build_user_org_context(request)
+        user_context.extend(self._build_transactions_context(request))
         if user_context:
-            base_content = messages[0]["content"]
-            messages[0]["content"] = base_content + "\n\nКонтекст: " + "; ".join(user_context)
+            messages[0]["content"] += "\n\nКонтекст: " + "; ".join(user_context)
 
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0.2}
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
         try:
-            response = requests.post(
-                OPENROUTER_URL,
-                headers=headers,
-                json=payload,
+            assistant_reply = create_chat_completion(
+                messages=messages,
+                temperature=0.2,
                 timeout=60,
             )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            return Response(
-                {"error": "Ошибка запроса к OpenRouter", "details": str(exc)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        try:
-            data = response.json()
-            assistant_reply = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, ValueError):
-            return Response(
-                {"error": "Некорректный ответ от OpenRouter", "raw": data},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        except OpenRouterError as exc:
+            return Response({"error": exc.message}, status=exc.status_code)
 
         session.append_message("user", message)
         session.append_message("assistant", assistant_reply)

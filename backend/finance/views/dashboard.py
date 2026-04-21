@@ -16,5 +16,5 @@ class DashboardView(APIView):
     serializer_class = DashboardResponseSerializer
 
     def get(self, request):
-        data = get_dashboard_data(request.user)
+        data = get_dashboard_data(request.user, filters=request.query_params)
         return Response(data)

@@ -13,6 +13,7 @@ from .serializers import UnifiedTaxRequestSerializer, UnifiedTaxReportResponseSe
 from .services.ai_validator import AITaxValidator
 from .services.pdf_generator import UnifiedTaxPDFGenerator
 from .services.report_data_builder import ReportDataBuilder
+from .template_config import TemplateNotFoundError, get_template_path
 
 
 class GenerateUnifiedTaxReportView(APIView):
@@ -41,12 +42,34 @@ class GenerateUnifiedTaxReportView(APIView):
 
         file_name = f"unified_tax_{organization.id}_{year}_Q{quarter}.pdf"
         file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-        template_path = os.path.join(
-            settings.BASE_DIR, "tax_reports", "templates", "unified_tax_blank.pdf"
-        )
+
+        # Determine report template based on type, tax regime and period.
+        # For unified tax we use quarterly period key; later this can be extended
+        # to support different templates per year/period without touching business logic.
+        report_type = "unified_tax"
+        tax_regime = organization.tax_regime
+        period_key = "quarterly"
 
         try:
-            pdf_generator = UnifiedTaxPDFGenerator(report_data, template_path=template_path)
+            template_path = get_template_path(
+                report_type=report_type,
+                tax_regime=tax_regime,
+                period_key=period_key,
+            )
+        except TemplateNotFoundError as exc:
+            return Response(
+                {
+                    "error": "PDF template is not configured for current report parameters.",
+                    "details": str(exc),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            pdf_generator = UnifiedTaxPDFGenerator(
+                report_data,
+                template_path=template_path,
+            )
             pdf_generator.generate(file_path)
         except Exception as exc:
             return Response(

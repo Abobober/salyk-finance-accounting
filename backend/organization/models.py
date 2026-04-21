@@ -7,110 +7,111 @@ from activities.models import ActivityCode
 
 
 class OrganizationProfile(models.Model):
-    """
-    Модель для хранения информации о налоговом режиме и видах деятельности пользователя.
-    """
     class OrgType(models.TextChoices):
-        IE = 'ie', 'ИП'
-        LLC = 'llc', 'ОсОО'
+        IE = 'ie', 'IE'
+        LLC = 'llc', 'LLC'
 
     class TaxRegime(models.TextChoices):
-        SINGLE = 'single', 'Единый налог'
-        GENERAL = 'general', 'Общий налоговый режим'
+        SINGLE = 'single', 'Single tax'
+        GENERAL = 'general', 'General tax regime'
 
     class TaxPeriodType(models.TextChoices):
-        PRESET = 'preset', 'Предустановленный период'
-        CUSTOM = 'custom', 'Пользовательский период'
+        PRESET = 'preset', 'Preset period'
+        CUSTOM = 'custom', 'Custom period'
 
     class TaxPeriodPreset(models.TextChoices):
-        MONTHLY = 'monthly', 'Ежемесячно (1-е число)'
-        QUARTERLY = 'quarterly', 'Ежеквартально (1-е число)'
-        YEARLY = 'yearly', 'Ежегодно (1 января)'
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        YEARLY = 'yearly', 'Yearly'
 
     class OnboardingStatus(models.TextChoices):
-        NOT_STARTED = 'not_started'
-        ORG_TYPE = 'org_type'
-        TAX_REGIME = 'tax_regime'
-        ACTIVITIES = 'activities'
-        COMPLETED = 'completed'
+        NOT_STARTED = 'not_started', 'Not started'
+        ORG_TYPE = 'org_type', 'Organization type'
+        TAX_REGIME = 'tax_regime', 'Tax regime'
+        ACTIVITIES = 'activities', 'Activities'
+        COMPLETED = 'completed', 'Completed'
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='organization'
+        related_name='organization',
     )
-
     org_type = models.CharField(max_length=10, choices=OrgType.choices, null=True, blank=True)
     tax_regime = models.CharField(max_length=15, choices=TaxRegime.choices, null=True, blank=True)
-
-    # Tax period settings
-    tax_period_type = models.CharField(
-        max_length=10,
-        choices=TaxPeriodType.choices,
-        null=True,
-        blank=True,
-        verbose_name='Тип налогового периода'
-    )
-    tax_period_preset = models.CharField(
-        max_length=15,
-        choices=TaxPeriodPreset.choices,
-        null=True,
-        blank=True,
-        verbose_name='Предустановленный налоговый период'
-    )
+    tax_period_type = models.CharField(max_length=10, choices=TaxPeriodType.choices, null=True, blank=True)
+    tax_period_preset = models.CharField(max_length=15, choices=TaxPeriodPreset.choices, null=True, blank=True)
     tax_period_custom_day = models.IntegerField(
         null=True,
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(31)],
-        verbose_name='День месяца для пользовательского периода (1-31)'
     )
-
     onboarding_status = models.CharField(
         max_length=20,
         choices=OnboardingStatus.choices,
-        default=OnboardingStatus.NOT_STARTED
+        default=OnboardingStatus.NOT_STARTED,
     )
 
     def __str__(self):
-        return f"Organization of {self.user.email}"
+        return f'Organization of {self.user.email}'
 
     def clean(self):
-        """Validate tax period settings."""
+        if not self.tax_period_type:
+            if self.tax_period_preset or self.tax_period_custom_day is not None:
+                raise ValidationError({
+                    'tax_period_type': 'Choose a tax period type before filling its settings.',
+                })
+            return
+
         if self.tax_period_type == self.TaxPeriodType.PRESET and not self.tax_period_preset:
             raise ValidationError({
-                'tax_period_preset': 'Необходимо выбрать предустановленный период.'
-            })
-        if self.tax_period_type == self.TaxPeriodType.CUSTOM and not self.tax_period_custom_day:
-            raise ValidationError({
-                'tax_period_custom_day': 'Необходимо указать день месяца для пользовательского периода.'
-            })
-        if self.tax_period_type == self.TaxPeriodType.PRESET and self.tax_period_custom_day:
-            raise ValidationError({
-                'tax_period_custom_day': 'День месяца не используется для предустановленного периода.'
-            })
-        if self.tax_period_type == self.TaxPeriodType.CUSTOM and self.tax_period_preset:
-            raise ValidationError({
-                'tax_period_preset': 'Предустановленный период не используется для пользовательского типа.'
+                'tax_period_preset': 'Preset tax period is required.',
             })
 
+        if self.tax_period_type == self.TaxPeriodType.CUSTOM and not self.tax_period_custom_day:
+            raise ValidationError({
+                'tax_period_custom_day': 'Custom day is required for custom periods.',
+            })
+
+        if self.tax_period_type == self.TaxPeriodType.CUSTOM and self.tax_period_preset:
+            raise ValidationError({
+                'tax_period_preset': 'Preset period must be empty for custom periods.',
+            })
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(tax_period_type__isnull=True) &
+                     models.Q(tax_period_preset__isnull=True) &
+                     models.Q(tax_period_custom_day__isnull=True)) |
+                    (models.Q(tax_period_type='preset') &
+                     models.Q(tax_period_preset__isnull=False)) |
+                    (models.Q(tax_period_type='custom') &
+                     models.Q(tax_period_custom_day__isnull=False) &
+                     models.Q(tax_period_preset__isnull=True))
+                ),
+                name='organization_tax_period_state_valid',
+            ),
+        ]
 
 
 class OrganizationActivity(models.Model):
-    """
-    Промежуточная модель для связи профиля организации с видами деятельности.
-    """
     profile = models.ForeignKey(
         OrganizationProfile,
         on_delete=models.CASCADE,
-        related_name='activities'
+        related_name='activities',
     )
     activity = models.ForeignKey(ActivityCode, on_delete=models.PROTECT)
-
     cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2)
     non_cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2)
-
     is_primary = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ('profile', 'activity')
-
+        constraints = [
+            models.UniqueConstraint(fields=['profile', 'activity'], name='unique_profile_activity'),
+            models.UniqueConstraint(
+                fields=['profile'],
+                condition=models.Q(is_primary=True),
+                name='unique_primary_activity_per_profile',
+            ),
+        ]

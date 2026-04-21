@@ -1,9 +1,4 @@
-import { apiFetch } from '@/api/client'
-
-export interface UnifiedTaxRequest {
-  year: number
-  quarter: 1 | 2 | 3 | 4
-}
+import { apiRequest } from './client'
 
 export interface UnifiedTaxReportResponse {
   report_data: Record<string, unknown>
@@ -11,9 +6,9 @@ export interface UnifiedTaxReportResponse {
   ai_validation: string
 }
 
-export function generateUnifiedTaxReport(payload: UnifiedTaxRequest) {
-  return apiFetch<UnifiedTaxReportResponse>('/tax/generate-unified-tax/', {
+export function generateUnifiedTaxReport(data: { year: number; quarter: 1 | 2 | 3 | 4 }) {
+  return apiRequest<UnifiedTaxReportResponse>('/tax/generate-unified-tax/', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(data),
   })
 }

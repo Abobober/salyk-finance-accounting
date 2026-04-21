@@ -1,8 +1,20 @@
-# Скопировать в .env и заполнить
-SECRET_KEY= # например, через `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+# Copy to .env and fill in the values
+SECRET_KEY=
 DEBUG=True
 DB_NAME=finance_accounting_db
 DB_USER=postgres
-DB_PASSWORD= # пароль от posgres
+DB_PASSWORD=
 DB_HOST=localhost
 DB_PORT=5432
+DJANGO_SUPERUSER_EMAIL=
+DJANGO_SUPERUSER_PASSWORD=
+REDIS_URL=
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
+BOT_USERNAME=finance_iuca_bot
+FINANCE_CACHE_TTL=60
+IDEMPOTENCY_ENABLED=True
+IDEMPOTENCY_CACHE_TTL=86400
+IDEMPOTENCY_LOCK_TTL=60
+CELERY_BROKER_URL=
+CELERY_RESULT_BACKEND=
