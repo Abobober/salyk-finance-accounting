@@ -21,6 +21,7 @@ OPENROUTER_FALLBACK_MODELS = env.list(
 OPENROUTER_APP_NAME = env('OPENROUTER_APP_NAME', default='finance-accounting')
 OPENROUTER_SITE_URL = env('OPENROUTER_SITE_URL', default='http://localhost')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 REDIS_URL = env('REDIS_URL', default='')
 BOT_API_SECRET = env('BOT_API_SECRET', default='')
 BOT_TOKEN = env('BOT_TOKEN', default='')
@@ -30,6 +31,12 @@ FINANCE_CACHE_TTL = env.int('FINANCE_CACHE_TTL', default=60)
 IDEMPOTENCY_ENABLED = env.bool('IDEMPOTENCY_ENABLED', default=True)
 IDEMPOTENCY_CACHE_TTL = env.int('IDEMPOTENCY_CACHE_TTL', default=86400)
 IDEMPOTENCY_LOCK_TTL = env.int('IDEMPOTENCY_LOCK_TTL', default=60)
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=False)
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=False)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=False)
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False)
+SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=False)
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -87,7 +94,6 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': '',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SCHEMA_GENERATOR_CLASS': 'config.openapi.SafeAutoSchema',
 }
 
 SIMPLE_JWT = {
@@ -169,9 +175,12 @@ TIME_ZONE = 'Asia/Bishkek'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CACHES = {
     'default': {

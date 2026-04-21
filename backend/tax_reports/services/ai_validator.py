@@ -57,7 +57,9 @@ class AITaxValidator:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.2,
-                timeout=30,
+                timeout=10,
             )
         except OpenRouterError as exc:
             return f"AI-проверка недоступна: {exc.message}"
+        except Exception as exc:  # pragma: no cover
+            return f"AI-проверка недоступна: {exc}"

@@ -1,0 +1,16 @@
+.git
+.gitignore
+.vscode
+venv
+__pycache__
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/dist
+**/*.pyc
+**/*.pyo
+**/*.pyd
+backend/media
+backend/staticfiles
+.env
+.env.*
