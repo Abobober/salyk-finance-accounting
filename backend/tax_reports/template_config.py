@@ -9,7 +9,8 @@ class TemplateNotFoundError(Exception):
 
 
 BASE_DIR = Path(settings.BASE_DIR)
-FORMS_ROOT = BASE_DIR / "FORMS"
+PROJECT_ROOT = BASE_DIR.parent
+FORMS_ROOT = PROJECT_ROOT / "FORMS"
 
 
 def _scan_forms_directory() -> Dict[str, Dict[str, Path]]:
@@ -106,7 +107,7 @@ def _auto_resolve_form_template(report_type: str, period_key: str) -> Path:
         selected_version_key = sorted(form_versions.keys())[-1]
         relative_path = form_versions[selected_version_key]
 
-    absolute_path = BASE_DIR / relative_path
+    absolute_path = PROJECT_ROOT / relative_path
     if not absolute_path.exists():
         raise TemplateNotFoundError(
             f"PDF template file not found at path '{absolute_path}'. "
@@ -121,17 +122,13 @@ def _auto_resolve_form_template(report_type: str, period_key: str) -> Path:
 # При добавлении новых типов отчетов/режимов/периодов достаточно обновить этот словарь,
 # бизнес-логика при этом не меняется.
 TAX_REPORT_TEMPLATES: Dict[str, Dict[str, Dict[str, Path]]] = {
-    # Unified tax report for SINGLE tax regime, quarterly period.
+    # Единый налог по официальной форме STI-091_9 (редакция 25.03.2026).
     "unified_tax": {
         "single": {
-            # Официальный бланк единого налога — форма STI-107, версия _07.
-            # Если по какой-то причине форма не обнаружится в AVAILABLE_FORMS,
-            # используем ожидаемый путь по умолчанию.
-            "quarterly": AVAILABLE_FORMS.get("STI-107", {}).get(
-                "_07", Path("FORMS") / "STI-107" / "_07" / "form.pdf"
+            "quarterly": AVAILABLE_FORMS.get("STI-091", {}).get(
+                "_09", Path("FORMS") / "STI-091" / "_09" / "form.pdf"
             ),
         },
-        # Дополнительные режимы (например, "general") можно добавить здесь позже.
     },
 }
 
@@ -149,7 +146,7 @@ def get_template_path(report_type: str, tax_regime: str, period_key: str) -> Pat
     # 1. Пытаемся использовать явный конфиг (тип/режим/период).
     try:
         relative_path = TAX_REPORT_TEMPLATES[report_type][tax_regime][period_key]
-        absolute_path = BASE_DIR / relative_path
+        absolute_path = PROJECT_ROOT / relative_path
         if not absolute_path.exists():
             raise TemplateNotFoundError(
                 f"PDF template file not found at path '{absolute_path}'. "
