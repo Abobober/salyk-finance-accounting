@@ -81,6 +81,15 @@ export function createAiSessionId() {
 
 function cleanupAiLine(line: string) {
   return line
+    .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\sum_\{([^}]*)\}\s*/g, 'сумма по ')
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1 / $2')
+    .replace(/\\cdot/g, ' * ')
+    .replace(/\\times/g, ' * ')
+    .replace(/\\%/g, '%')
+    .replace(/[{}]/g, '')
+    // Strip CJK chars/noise that sometimes appears in model output.
+    .replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g, '')
     .replace(/^#{1,6}\s*/, '')
     .replace(/^\*+\s*/, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
