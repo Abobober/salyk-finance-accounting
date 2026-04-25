@@ -1470,10 +1470,19 @@ export function WorkspaceScreen({
 
             <div className="soft-card">
               <p className="soft-card-title">Наименование организации</p>
-              <p className="muted">
-                Сейчас в профиле редактируются только данные контактного лица. Отдельного поля для названия
-                компании в API пока нет, поэтому в отчете используется email аккаунта.
-              </p>
+              {organizationProfile?.taxpayer_name?.trim() ? (
+                <p>{organizationProfile.taxpayer_name}</p>
+              ) : (
+                <p className="muted">
+                  Наименование пока не заполнено. Заполните реквизиты организации в онбординге, чтобы оно
+                  отображалось здесь.
+                </p>
+              )}
+              {organizationProfile?.org_type ? (
+                <p className="muted">
+                  Тип организации: {organizationProfile.org_type === 'ie' ? 'ИП' : 'ОсОО'}
+                </p>
+              ) : null}
             </div>
 
             <div className="soft-card">

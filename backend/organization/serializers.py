@@ -16,6 +16,9 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
             'tax_period_type', 'tax_period_type_display',
             'tax_period_preset', 'tax_period_preset_display',
             'tax_period_custom_day',
+            'inn', 'taxpayer_name',
+            'tax_authority_code', 'tax_authority_name',
+            'contact_phone',
         )
         read_only_fields = ('onboarding_status', 'tax_period_type_display', 'tax_period_preset_display')
 
@@ -78,6 +81,16 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('At least one activity is required.')
         if not profile.activities.filter(is_primary=True).exists():
             raise serializers.ValidationError('Primary activity is required.')
+        if not (profile.inn or '').strip():
+            raise serializers.ValidationError('INN is required.')
+        if not (profile.taxpayer_name or '').strip():
+            raise serializers.ValidationError('Taxpayer full name or company name is required.')
+        if not (profile.tax_authority_code or '').strip():
+            raise serializers.ValidationError('Tax authority code is required.')
+        if not (profile.tax_authority_name or '').strip():
+            raise serializers.ValidationError('Tax authority name is required.')
+        if not (profile.contact_phone or '').strip():
+            raise serializers.ValidationError('Contact phone is required.')
         return attrs
 
     def update(self, instance, validated_data):

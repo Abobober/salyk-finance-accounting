@@ -210,3 +210,4 @@ CELERY_BEAT_SCHEDULE = {
 AUTH_USER_MODEL = 'users.CustomUser'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
