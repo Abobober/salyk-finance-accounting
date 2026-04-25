@@ -1391,7 +1391,7 @@ export function WorkspaceScreen({
                     </a>
                   </p>
                   <pre>{JSON.stringify(unifiedTaxResult.report_data, null, 2)}</pre>
-                  <p className="muted">{unifiedTaxResult.ai_validation}</p>
+                  <ChatMessageBody text={formatAiAssistantReply(unifiedTaxResult.ai_validation)} />
                 </div>
               ) : null}
             </div>
