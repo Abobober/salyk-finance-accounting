@@ -50,6 +50,11 @@ class OrganizationProfile(models.Model):
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(31)],
     )
+    inn = models.CharField(max_length=20, null=True, blank=True)
+    taxpayer_name = models.CharField(max_length=255, null=True, blank=True)
+    tax_authority_code = models.CharField(max_length=30, null=True, blank=True)
+    tax_authority_name = models.CharField(max_length=255, null=True, blank=True)
+    contact_phone = models.CharField(max_length=50, null=True, blank=True)
     onboarding_status = models.CharField(
         max_length=20,
         choices=OnboardingStatus.choices,

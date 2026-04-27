@@ -79,6 +79,66 @@ export function createAiSessionId() {
   return `sess_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
+function cleanupAiLine(line: string) {
+  return line
+    .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\sum_\{([^}]*)\}\s*/g, 'сумма по ')
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1 / $2')
+    .replace(/\\cdot/g, ' * ')
+    .replace(/\\times/g, ' * ')
+    .replace(/\\%/g, '%')
+    .replace(/[{}]/g, '')
+    // Strip CJK chars/noise that sometimes appears in model output.
+    .replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g, '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^\*+\s*/, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\\\[/g, '')
+    .replace(/\\\]/g, '')
+    .replace(/\\\(/g, '')
+    .replace(/\\\)/g, '')
+    .replace(/\bcash\b/gi, 'наличные')
+    .replace(/\bnon[- ]?cash\b/gi, 'безнал')
+    .replace(/Cash_доход/gi, 'Наличный доход')
+    .replace(/NonCash_доход/gi, 'Безналичный доход')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
+}
+
+function shortenAiLine(line: string, maxLength = 170) {
+  if (line.length <= maxLength) {
+    return line
+  }
+
+  const shortened = line.slice(0, maxLength).trim()
+  const lastSpace = shortened.lastIndexOf(' ')
+  return `${(lastSpace > 60 ? shortened.slice(0, lastSpace) : shortened).trim()}...`
+}
+
+export function formatAiAssistantReply(raw: string) {
+  const normalized = raw.replace(/\r\n/g, '\n').replace(/[\u00A0\u202F\u2009]/g, ' ')
+  const lines = normalized
+    .split('\n')
+    .map((line) => cleanupAiLine(line))
+    .filter(Boolean)
+
+  if (!lines.length) {
+    return cleanupAiLine(raw)
+  }
+
+  const deduped = lines.filter((line, index) => {
+    if (line.length < 2) {
+      return false
+    }
+    return line.toLowerCase() !== (lines[index - 1] ?? '').toLowerCase()
+  })
+
+  // Keep the full answer body and only trim very long individual lines.
+  return deduped.map((line) => shortenAiLine(line, 500)).join('\n')
+}
+
 export function getPresetRange(preset: Exclude<DashboardPreset, 'custom'>) {
   const today = new Date()
   const end = formatDateInput(today)
