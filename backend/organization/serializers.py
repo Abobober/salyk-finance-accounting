@@ -8,22 +8,49 @@ from .services import get_or_create_organization_profile
 class OrganizationProfileSerializer(serializers.ModelSerializer):
     tax_period_type_display = serializers.CharField(source='get_tax_period_type_display', read_only=True)
     tax_period_preset_display = serializers.CharField(source='get_tax_period_preset_display', read_only=True)
+    text_fields_to_normalize = (
+        'tin',
+        'taxpayer_name',
+        'tax_office_code',
+        'tax_office_name',
+        'contact_phone',
+    )
 
     class Meta:
         model = OrganizationProfile
         fields = (
             'org_type', 'tax_regime', 'onboarding_status',
+            'tin', 'taxpayer_name', 'tax_office_code', 'tax_office_name', 'contact_phone',
             'tax_period_type', 'tax_period_type_display',
             'tax_period_preset', 'tax_period_preset_display',
             'tax_period_custom_day',
         )
         read_only_fields = ('onboarding_status', 'tax_period_type_display', 'tax_period_preset_display')
 
+    def _normalize_text_field(self, attrs, field_name):
+        if field_name not in attrs:
+            return
+
+        value = attrs[field_name]
+        if value is None:
+            return
+
+        normalized_value = value.strip()
+        if not normalized_value:
+            raise serializers.ValidationError({
+                field_name: 'This field may not be blank.',
+            })
+
+        attrs[field_name] = normalized_value
+
     def validate(self, attrs):
         instance = self.instance
         tax_period_type = attrs['tax_period_type'] if 'tax_period_type' in attrs else (instance.tax_period_type if instance else None)
         tax_period_preset = attrs['tax_period_preset'] if 'tax_period_preset' in attrs else (instance.tax_period_preset if instance else None)
         tax_period_custom_day = attrs['tax_period_custom_day'] if 'tax_period_custom_day' in attrs else (instance.tax_period_custom_day if instance else None)
+
+        for field_name in self.text_fields_to_normalize:
+            self._normalize_text_field(attrs, field_name)
 
         if tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
             tax_period_preset = None
@@ -64,6 +91,14 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
 
 
 class OnboardingFinalizeSerializer(serializers.ModelSerializer):
+    required_profile_fields = {
+        'tin': 'TIN is required.',
+        'taxpayer_name': 'Taxpayer name is required.',
+        'tax_office_code': 'Tax office code is required.',
+        'tax_office_name': 'Tax office name is required.',
+        'contact_phone': 'Contact phone is required.',
+    }
+
     class Meta:
         model = OrganizationProfile
         fields = ()
@@ -74,6 +109,10 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Organization type is required.')
         if not profile.tax_regime:
             raise serializers.ValidationError('Tax regime is required.')
+        for field_name, error_message in self.required_profile_fields.items():
+            value = getattr(profile, field_name, None)
+            if not value or not str(value).strip():
+                raise serializers.ValidationError(error_message)
         if not profile.activities.exists():
             raise serializers.ValidationError('At least one activity is required.')
         if not profile.activities.filter(is_primary=True).exists():

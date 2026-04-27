@@ -22,6 +22,27 @@ class OrganizationFlowTests(TestCase):
         self.client.force_authenticate(self.user)
         self.activity = ActivityCode.objects.create(code='A01', section='A', name='Test activity')
 
+    def _create_ready_to_finalize_profile(self, **overrides):
+        profile = OrganizationProfile.objects.create(
+            user=self.user,
+            org_type=OrganizationProfile.OrgType.IE,
+            tax_regime=OrganizationProfile.TaxRegime.SINGLE,
+            tin='12345678901234',
+            taxpayer_name='ИП Тестов Тест',
+            tax_office_code='101',
+            tax_office_name='УГНС по г. Бишкек',
+            contact_phone='+996555000111',
+            **overrides,
+        )
+        OrganizationActivity.objects.create(
+            profile=profile,
+            activity=self.activity,
+            cash_tax_rate=Decimal('2.00'),
+            non_cash_tax_rate=Decimal('4.00'),
+            is_primary=True,
+        )
+        return profile
+
     def test_profile_endpoint_creates_missing_profile(self):
         response = self.client.get('/api/organization/profile/')
 
@@ -39,6 +60,31 @@ class OrganizationFlowTests(TestCase):
         self.assertEqual(response.status_code, 201)
         profile = OrganizationProfile.objects.get(user=self.user)
         self.assertEqual(profile.activities.count(), 1)
+
+    def test_profile_patch_saves_required_organization_details(self):
+        response = self.client.patch('/api/organization/profile/', {
+            'tin': ' 12345678901234 ',
+            'taxpayer_name': ' ИП Тестов Тест ',
+            'tax_office_code': ' 101 ',
+            'tax_office_name': ' УГНС по г. Бишкек ',
+            'contact_phone': ' +996555000111 ',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        profile = OrganizationProfile.objects.get(user=self.user)
+        self.assertEqual(profile.tin, '12345678901234')
+        self.assertEqual(profile.taxpayer_name, 'ИП Тестов Тест')
+        self.assertEqual(profile.tax_office_code, '101')
+        self.assertEqual(profile.tax_office_name, 'УГНС по г. Бишкек')
+        self.assertEqual(profile.contact_phone, '+996555000111')
+
+    def test_profile_patch_rejects_whitespace_only_required_organization_details(self):
+        response = self.client.patch('/api/organization/profile/', {
+            'tin': '   ',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['tin'][0], 'This field may not be blank.')
 
     def test_switch_from_preset_to_custom_clears_preset_without_explicit_null(self):
         OrganizationProfile.objects.create(
@@ -131,3 +177,52 @@ class OrganizationFlowTests(TestCase):
                 non_cash_tax_rate=Decimal('3.00'),
                 is_primary=True,
             )
+
+    def test_finalize_requires_tin(self):
+        self._create_ready_to_finalize_profile(tin=None)
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'TIN is required.')
+
+    def test_finalize_requires_taxpayer_name(self):
+        self._create_ready_to_finalize_profile(taxpayer_name='   ')
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'Taxpayer name is required.')
+
+    def test_finalize_requires_tax_office_details(self):
+        self._create_ready_to_finalize_profile(tax_office_code=None)
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'Tax office code is required.')
+
+        OrganizationProfile.objects.filter(user=self.user).delete()
+        self._create_ready_to_finalize_profile(tax_office_name='   ')
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'Tax office name is required.')
+
+    def test_finalize_requires_contact_phone(self):
+        self._create_ready_to_finalize_profile(contact_phone='')
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'Contact phone is required.')
+
+    def test_finalize_succeeds_with_full_organization_details(self):
+        self._create_ready_to_finalize_profile()
+
+        response = self.client.patch('/api/organization/finalize/', {}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        profile = OrganizationProfile.objects.get(user=self.user)
+        self.assertEqual(profile.onboarding_status, OrganizationProfile.OnboardingStatus.COMPLETED)

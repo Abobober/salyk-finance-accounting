@@ -38,6 +38,11 @@ class OrganizationProfile(models.Model):
     )
     org_type = models.CharField(max_length=10, choices=OrgType.choices, null=True, blank=True)
     tax_regime = models.CharField(max_length=15, choices=TaxRegime.choices, null=True, blank=True)
+    tin = models.CharField(max_length=30, null=True, blank=True)
+    taxpayer_name = models.CharField(max_length=255, null=True, blank=True)
+    tax_office_code = models.CharField(max_length=50, null=True, blank=True)
+    tax_office_name = models.CharField(max_length=255, null=True, blank=True)
+    contact_phone = models.CharField(max_length=50, null=True, blank=True)
     tax_period_type = models.CharField(max_length=10, choices=TaxPeriodType.choices, null=True, blank=True)
     tax_period_preset = models.CharField(max_length=15, choices=TaxPeriodPreset.choices, null=True, blank=True)
     tax_period_custom_day = models.IntegerField(
