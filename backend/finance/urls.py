@@ -9,6 +9,7 @@ from .views import (
     CategoryBreakdownAnalyticsView,
     PeriodComparisonAnalyticsView,
     TaxReportView,
+    TaxReportV2View,
 )
 
 router = DefaultRouter()
@@ -18,6 +19,7 @@ router.register(r'transactions', TransactionViewSet, basename='transaction')
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('tax-report/', TaxReportView.as_view(), name='tax-report'),
+    path('tax-report/v2/', TaxReportV2View.as_view(), name='tax-report-v2'),
     path('analytics/time-series/', TimeSeriesAnalyticsView.as_view(), name='analytics-time-series'),
     path('analytics/category-breakdown/', CategoryBreakdownAnalyticsView.as_view(), name='analytics-category-breakdown'),
     path('analytics/period-comparison/', PeriodComparisonAnalyticsView.as_view(), name='analytics-period-comparison'),

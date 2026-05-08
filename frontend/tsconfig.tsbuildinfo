@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/authscreen.tsx","./src/onboardingscreen.tsx","./src/workspacescreen.tsx","./src/components.tsx","./src/lib.ts","./src/main.tsx","./src/api/activities.ts","./src/api/aichat.ts","./src/api/auth.ts","./src/api/client.ts","./src/api/finance.ts","./src/api/organization.ts","./src/api/taxreports.ts","./src/api/telegram.ts"],"version":"5.6.3"}

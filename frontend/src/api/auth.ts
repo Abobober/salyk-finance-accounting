@@ -1,67 +1,60 @@
-import type { LoginRequest, RegisterRequest, TokenPair } from './types'
-import { getAuthHeaders } from './client'
+import { apiRequest } from './client'
 
-const API_BASE = '/api'
-
-/** POST /api/token/ - получить access и refresh токены */
-export async function login(credentials: LoginRequest): Promise<TokenPair> {
-  const res = await fetch(`${API_BASE}/token/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || err.email?.[0] || 'Ошибка авторизации')
-  }
-  return res.json()
+export interface LoginRequest {
+  email: string
+  password: string
 }
 
-/** POST /api/token/refresh/ - обновить access токен */
-export async function refreshToken(refresh: string): Promise<{ access: string }> {
-  const res = await fetch(`${API_BASE}/token/refresh/`, {
+export interface RegisterRequest {
+  email: string
+  password: string
+  password2: string
+  first_name?: string
+  last_name?: string
+}
+
+export interface TokenPair {
+  access: string
+  refresh: string
+}
+
+export interface UserProfile {
+  id: number
+  email: string
+  first_name: string
+  last_name: string
+  telegram_id: string | null
+  date_joined: string
+}
+
+export function login(data: LoginRequest) {
+  return apiRequest<TokenPair>('/token/', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function register(data: RegisterRequest) {
+  return apiRequest<{ message: string }>('/users/register/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function getCurrentUser() {
+  return apiRequest<UserProfile>('/users/me/')
+}
+
+export function updateProfile(data: Partial<Pick<UserProfile, 'email' | 'first_name' | 'last_name'>>) {
+  return apiRequest<UserProfile>('/users/profile/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export function logout(refresh: string) {
+  return apiRequest<void>('/users/logout/', {
+    method: 'POST',
     body: JSON.stringify({ refresh }),
   })
-  if (!res.ok) throw new Error('Не удалось обновить сессию')
-  return res.json()
-}
-
-/** POST /api/users/register/ - регистрация */
-export async function register(data: RegisterRequest): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/users/register/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const msg = err.password?.[0] || err.email?.[0] || err.password2?.[0] || err.detail || 'Ошибка регистрации'
-    throw new Error(typeof msg === 'string' ? msg : msg[0])
-  }
-  return res.json()
-}
-
-/** GET /api/users/me/ - текущий пользователь */
-export async function getCurrentUser() {
-  const res = await fetch(`${API_BASE}/users/me/`, {
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) throw new Error('Сессия истекла')
-  return res.json()
-}
-
-/** PATCH /api/users/profile/ - обновить профиль */
-export async function updateProfile(data: { first_name?: string; last_name?: string }) {
-  const res = await fetch(`${API_BASE}/users/profile/`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Ошибка обновления профиля')
-  }
-  return res.json()
 }

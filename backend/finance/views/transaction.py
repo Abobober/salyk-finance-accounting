@@ -1,6 +1,7 @@
 """Transaction views."""
 
-from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 
 from finance.filters import TransactionFilter
@@ -16,7 +17,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated, IsOnboardingCompleted]
     filterset_class = TransactionFilter
-    ordering_fields = ['transaction_date', 'amount', 'created_at']
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    ordering_fields = ['transaction_date', 'amount', 'created_at', 'activity_code', 'activity_code__name']
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
