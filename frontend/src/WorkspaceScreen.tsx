@@ -742,123 +742,146 @@ export function WorkspaceScreen({
               </div>
 
               {showAdvancedFilters ? (
-                <div className="field-grid four compact-advanced">
-                  {filters.preset === 'custom' ? (
-                    <>
-                      <label className="field">
-                        <span>Дата с</span>
-                        <input
-                          type="date"
-                          value={filters.date_from}
-                          onChange={(event) => {
-                            setFilters({ ...filters, date_from: event.target.value })
-                            setTransactionOffset(0)
-                          }}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Дата по</span>
-                        <input
-                          type="date"
-                          value={filters.date_to}
-                          onChange={(event) => {
-                            setFilters({ ...filters, date_to: event.target.value })
-                            setTransactionOffset(0)
-                          }}
-                        />
-                      </label>
-                    </>
-                  ) : null}
+                <div className="stack-sm compact-advanced">
+                  <div className="field-grid two compact-advanced">
+                    {filters.preset === 'custom' ? (
+                      <>
+                        <label className="field">
+                          <span>Дата с</span>
+                          <input
+                            type="date"
+                            value={filters.date_from}
+                            onChange={(event) => {
+                              setFilters({ ...filters, date_from: event.target.value })
+                              setTransactionOffset(0)
+                            }}
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Дата по</span>
+                          <input
+                            type="date"
+                            value={filters.date_to}
+                            onChange={(event) => {
+                              setFilters({ ...filters, date_to: event.target.value })
+                              setTransactionOffset(0)
+                            }}
+                          />
+                        </label>
+                      </>
+                    ) : null}
 
-                  <label className="field">
-                    <span>Категория</span>
-                    <select
-                      value={filters.category}
-                      onChange={(event) => {
-                        setFilters({ ...filters, category: event.target.value })
-                        setTransactionOffset(0)
-                      }}
-                    >
-                      <option value="">Все</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <label className="field">
+                      <span>Категория</span>
+                      <select
+                        value={filters.category}
+                        onChange={(event) => {
+                          setFilters({ ...filters, category: event.target.value })
+                          setTransactionOffset(0)
+                        }}
+                      >
+                        <option value="">Все</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  <label className="field">
-                    <span>Вид деятельности</span>
-                    <select
-                      value={filters.activity_code}
-                      onChange={(event) => {
-                        setFilters({ ...filters, activity_code: event.target.value })
-                        setTransactionOffset(0)
-                      }}
-                    >
-                      <option value="">Все</option>
-                      {activities.map((activity) => (
-                        <option key={activity.id} value={activity.activity}>
-                          {activity.activity_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <label className="field">
+                      <span>Вид деятельности</span>
+                      <select
+                        value={filters.activity_code}
+                        onChange={(event) => {
+                          setFilters({ ...filters, activity_code: event.target.value })
+                          setTransactionOffset(0)
+                        }}
+                      >
+                        <option value="">Все</option>
+                        {activities.map((activity) => (
+                          <option key={activity.id} value={activity.activity}>
+                            {activity.activity_name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  <label className="field">
-                    <span>Оплата</span>
-                    <select
-                      value={filters.payment_method}
-                      onChange={(event) => {
+                    <label className="field">
+                      <span>Оплата</span>
+                      <select
+                        value={filters.payment_method}
+                        onChange={(event) => {
+                          setFilters({
+                            ...filters,
+                            payment_method: event.target.value as DashboardFilters['payment_method'],
+                          })
+                          setTransactionOffset(0)
+                        }}
+                      >
+                        <option value="">Все</option>
+                        <option value="cash">Наличные</option>
+                        <option value="non_cash">Безнал</option>
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Назначение</span>
+                      <select
+                        value={filters.is_business}
+                        onChange={(event) => {
+                          setFilters({
+                            ...filters,
+                            is_business: event.target.value as DashboardFilters['is_business'],
+                          })
+                          setTransactionOffset(0)
+                        }}
+                      >
+                        <option value="">Все</option>
+                        <option value="true">Бизнес</option>
+                        <option value="false">Личное</option>
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Налог</span>
+                      <select
+                        value={filters.is_taxable}
+                        onChange={(event) => {
+                          setFilters({
+                            ...filters,
+                            is_taxable: event.target.value as DashboardFilters['is_taxable'],
+                          })
+                          setTransactionOffset(0)
+                        }}
+                      >
+                        <option value="">Все</option>
+                        <option value="true">Облагается</option>
+                        <option value="false">Не облагается</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="toolbar-inline">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => {
                         setFilters({
                           ...filters,
-                          payment_method: event.target.value as DashboardFilters['payment_method'],
+                          category: '',
+                          activity_code: '',
+                          payment_method: '',
+                          is_business: '',
+                          is_taxable: '',
                         })
                         setTransactionOffset(0)
+                        setReportOffset(0)
                       }}
                     >
-                      <option value="">Все</option>
-                      <option value="cash">Наличные</option>
-                      <option value="non_cash">Безнал</option>
-                    </select>
-                  </label>
-
-                  <label className="field">
-                    <span>Назначение</span>
-                    <select
-                      value={filters.is_business}
-                      onChange={(event) => {
-                        setFilters({
-                          ...filters,
-                          is_business: event.target.value as DashboardFilters['is_business'],
-                        })
-                        setTransactionOffset(0)
-                      }}
-                    >
-                      <option value="">Все</option>
-                      <option value="true">Бизнес</option>
-                      <option value="false">Личное</option>
-                    </select>
-                  </label>
-
-                  <label className="field">
-                    <span>Налог</span>
-                    <select
-                      value={filters.is_taxable}
-                      onChange={(event) => {
-                        setFilters({
-                          ...filters,
-                          is_taxable: event.target.value as DashboardFilters['is_taxable'],
-                        })
-                        setTransactionOffset(0)
-                      }}
-                    >
-                      <option value="">Все</option>
-                      <option value="true">Облагается</option>
-                      <option value="false">Не облагается</option>
-                    </select>
-                  </label>
+                      Сбросить доп. фильтры
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </Section>
