@@ -55,7 +55,17 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendPath'
 Write-Host "Telegram bot..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$ProjectRoot'; & '$Python' '$(Join-Path $ProjectRoot 'tg_bot\run_bot.py')'"
 
-Write-Host "Frontend (http://localhost:3000)..." -ForegroundColor Cyan
+Write-Host "Frontend (Vite, обычно http://localhost:3000)..." -ForegroundColor Cyan
+$NodeModules = Join-Path $FrontendPath "node_modules"
+if (-not (Test-Path $NodeModules)) {
+    Write-Host "npm install в frontend..." -ForegroundColor Yellow
+    Push-Location $FrontendPath
+    try {
+        npm install
+    } finally {
+        Pop-Location
+    }
+}
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$FrontendPath'; npm run dev"
 
 Write-Host "`nDone. 5 windows: backend, celery worker, celery beat, bot, frontend." -ForegroundColor Green

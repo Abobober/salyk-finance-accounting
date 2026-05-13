@@ -5,7 +5,7 @@ from .models import CustomUser
 class CustomUserAdmin(UserAdmin):
     """Настройки отображения модели CustomUser в админке."""
     # Какие поля отображать в списке пользователей
-    list_display = ('email', 'first_name', 'last_name', 'telegram_id', 'is_staff')
+    list_display = ('id', 'email', 'first_name', 'last_name', 'telegram_id', 'is_active', 'is_staff')
     
     # По каким полям можно фильтровать
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
@@ -13,7 +13,7 @@ class CustomUserAdmin(UserAdmin):
     # Поля при редактировании пользователя в админке
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'telegram_id')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'telegram_id', 'phone')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )

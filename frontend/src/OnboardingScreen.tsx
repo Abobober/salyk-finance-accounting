@@ -193,6 +193,9 @@ export function OnboardingScreen({
     if (!profile.contact_phone?.trim()) {
       missingRequiredFields.push('контактный телефон')
     }
+    if (!profile.tax_period_type) {
+      missingRequiredFields.push('налоговый период')
+    }
     if (missingRequiredFields.length) {
       pushNotice('error', `Заполните перед завершением: ${missingRequiredFields.join(', ')}.`)
       return

@@ -8,6 +8,7 @@ from activities.models import ActivityCode
 from organization.models import OrganizationActivity
 
 from .constants import MAX_TRANSACTION_AMOUNT, MIN_TRANSACTION_AMOUNT
+from .managers import ActiveTransactionManager
 
 
 class Category(models.Model):
@@ -45,6 +46,9 @@ class Transaction(models.Model):
         CASH = 'cash', 'Cash'
         NON_CASH = 'non_cash', 'Non-cash'
 
+    objects = ActiveTransactionManager()
+    all_objects = models.Manager()
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -72,6 +76,13 @@ class Transaction(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     non_cash_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Дата удаления',
+        help_text='Мягкое удаление: запись скрыта из API и отчётов, но хранится в БД.',
+    )
 
     def clean(self):
         if self.is_business and not self.activity_code:
@@ -101,6 +112,7 @@ class Transaction(models.Model):
             models.Index(fields=["transaction_date"]),
             models.Index(fields=["created_at"]),
             models.Index(fields=["user", "transaction_date"]),
+            models.Index(fields=["user", "deleted_at"]),
         ]
         constraints = [
             models.CheckConstraint(
@@ -116,3 +128,38 @@ class Transaction(models.Model):
                 name="business_transaction_requires_activity_code",
             ),
         ]
+
+
+class TransactionLog(models.Model):
+    """Журнал действий с транзакцией (аудит для поддержки и восстановления)."""
+
+    class Action(models.TextChoices):
+        CREATED = 'created', 'Создание'
+        SOFT_DELETED = 'soft_deleted', 'Удаление (в корзину)'
+        RESTORED = 'restored', 'Восстановление'
+
+    transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.CASCADE,
+        related_name='logs',
+        verbose_name='Транзакция',
+    )
+    action = models.CharField(max_length=20, choices=Action.choices, verbose_name='Действие')
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transaction_log_entries',
+        verbose_name='Кто выполнил',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Когда')
+    note = models.CharField(max_length=255, blank=True, verbose_name='Заметка')
+
+    class Meta:
+        verbose_name = 'Запись журнала транзакции'
+        verbose_name_plural = 'Журнал транзакций'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f'{self.get_action_display()} #{self.transaction_id}'

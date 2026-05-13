@@ -1,8 +1,10 @@
 """Transaction views."""
 
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from finance.filters import TransactionFilter
 from finance.models import Transaction
@@ -43,3 +45,21 @@ class TransactionViewSet(viewsets.ModelViewSet):
             validated_data=serializer.validated_data
         )
         serializer.instance = instance
+
+    def perform_destroy(self, instance):
+        TransactionService.soft_delete(instance, self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        """Восстановить транзакцию после мягкого удаления (только владелец)."""
+        instance = (
+            Transaction.all_objects
+            .filter(pk=pk, user=request.user)
+            .exclude(deleted_at__isnull=True)
+            .first()
+        )
+        if instance is None:
+            return Response({'detail': 'Транзакция не найдена или уже активна.'}, status=status.HTTP_404_NOT_FOUND)
+        TransactionService.restore_transaction(instance, request.user)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)

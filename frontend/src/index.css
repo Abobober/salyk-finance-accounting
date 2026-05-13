@@ -84,6 +84,12 @@ pre {
   font-size: 0.83rem;
 }
 
+.report-pre {
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 #root,
 .app-shell {
   height: 100vh;

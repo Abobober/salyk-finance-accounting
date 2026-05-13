@@ -10,9 +10,12 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
     tax_period_preset_display = serializers.CharField(source='get_tax_period_preset_display', read_only=True)
     text_fields_to_normalize = (
         'tin',
+        'inn',
         'taxpayer_name',
         'tax_office_code',
         'tax_office_name',
+        'tax_authority_code',
+        'tax_authority_name',
         'contact_phone',
     )
 
@@ -20,13 +23,13 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
         model = OrganizationProfile
         fields = (
             'org_type', 'tax_regime', 'onboarding_status',
-            'tin', 'taxpayer_name', 'tax_office_code', 'tax_office_name', 'contact_phone',
+            'tin', 'inn', 'taxpayer_name',
+            'tax_office_code', 'tax_office_name',
+            'tax_authority_code', 'tax_authority_name',
+            'contact_phone',
             'tax_period_type', 'tax_period_type_display',
             'tax_period_preset', 'tax_period_preset_display',
             'tax_period_custom_day',
-            'inn', 'taxpayer_name',
-            'tax_authority_code', 'tax_authority_name',
-            'contact_phone',
         )
         read_only_fields = ('onboarding_status', 'tax_period_type_display', 'tax_period_preset_display')
 
@@ -94,13 +97,10 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
 
 
 class OnboardingFinalizeSerializer(serializers.ModelSerializer):
-    required_profile_fields = {
-        'tin': 'TIN is required.',
-        'taxpayer_name': 'Taxpayer name is required.',
-        'tax_office_code': 'Tax office code is required.',
-        'tax_office_name': 'Tax office name is required.',
-        'contact_phone': 'Contact phone is required.',
-    }
+    """
+    Завершение онбординга: те же поля, что собирает SPA (ИНН, налоговый орган и т.д.).
+    Поля tin / tax_office_* — необязательны; при пустом tin копируем ИНН для совместимости со старым кодом отчётов.
+    """
 
     class Meta:
         model = OrganizationProfile
@@ -112,27 +112,30 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Organization type is required.')
         if not profile.tax_regime:
             raise serializers.ValidationError('Tax regime is required.')
-        for field_name, error_message in self.required_profile_fields.items():
-            value = getattr(profile, field_name, None)
-            if not value or not str(value).strip():
-                raise serializers.ValidationError(error_message)
-        if not profile.activities.exists():
-            raise serializers.ValidationError('At least one activity is required.')
-        if not profile.activities.filter(is_primary=True).exists():
-            raise serializers.ValidationError('Primary activity is required.')
+        if not profile.tax_period_type:
+            raise serializers.ValidationError('Tax period is required.')
+
         if not (profile.inn or '').strip():
             raise serializers.ValidationError('INN is required.')
         if not (profile.taxpayer_name or '').strip():
-            raise serializers.ValidationError('Taxpayer full name or company name is required.')
+            raise serializers.ValidationError('Taxpayer name is required.')
         if not (profile.tax_authority_code or '').strip():
             raise serializers.ValidationError('Tax authority code is required.')
         if not (profile.tax_authority_name or '').strip():
             raise serializers.ValidationError('Tax authority name is required.')
         if not (profile.contact_phone or '').strip():
             raise serializers.ValidationError('Contact phone is required.')
+
+        if not profile.activities.exists():
+            raise serializers.ValidationError('At least one activity is required.')
+        if not profile.activities.filter(is_primary=True).exists():
+            raise serializers.ValidationError('Primary activity is required.')
         return attrs
 
     def update(self, instance, validated_data):
+        inn = (instance.inn or '').strip()
+        if inn and not (instance.tin or '').strip():
+            instance.tin = inn
         instance.onboarding_status = OrganizationProfile.OnboardingStatus.COMPLETED
         instance.save()
         return instance

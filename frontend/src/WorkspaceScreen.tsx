@@ -1385,12 +1385,19 @@ export function WorkspaceScreen({
               {unifiedTaxResult ? (
                 <div className="soft-card">
                   <p className="soft-card-title">Единый налоговый отчет</p>
-                  <p>
-                    <a href={unifiedTaxResult.pdf_file} target="_blank" rel="noreferrer">
-                      Открыть файл PDF
-                    </a>
-                  </p>
-                  <pre>{JSON.stringify(unifiedTaxResult.report_data, null, 2)}</pre>
+                  {unifiedTaxResult.validation_summary ? (
+                    <p className="muted">{unifiedTaxResult.validation_summary}</p>
+                  ) : null}
+                  {unifiedTaxResult.pdf_file ? (
+                    <p>
+                      <a href={unifiedTaxResult.pdf_file} target="_blank" rel="noreferrer">
+                        Открыть файл PDF
+                      </a>
+                    </p>
+                  ) : (
+                    <p className="muted">PDF не сформирован (нет шаблона или ошибка генерации).</p>
+                  )}
+                  <pre className="report-pre">{unifiedTaxResult.verbal_report}</pre>
                   <ChatMessageBody text={formatAiAssistantReply(unifiedTaxResult.ai_validation)} />
                 </div>
               ) : null}

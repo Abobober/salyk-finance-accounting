@@ -34,5 +34,5 @@ frontend/node_modules/
 
 # Celery beat
 celerybeat-schedule
+celerybeat-schedule*
 celerybeat.pid
-*.db

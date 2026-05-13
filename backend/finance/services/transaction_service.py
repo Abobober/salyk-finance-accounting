@@ -1,7 +1,8 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
-from finance.models import Transaction
+from finance.models import Transaction, TransactionLog
 from finance.utils import update_instance_from_dict
 
 
@@ -38,7 +39,13 @@ class TransactionService:
     def create_transaction(user, validated_data):
         """Create a new transaction."""
         _validate_transaction_business_rules(validated_data, instance=None)
-        return Transaction.objects.create(user=user, **validated_data)
+        instance = Transaction.objects.create(user=user, **validated_data)
+        TransactionLog.objects.create(
+            transaction=instance,
+            action=TransactionLog.Action.CREATED,
+            actor=user,
+        )
+        return instance
 
     @staticmethod
     @transaction.atomic
@@ -46,4 +53,34 @@ class TransactionService:
         """Update an existing transaction."""
         _validate_transaction_business_rules(validated_data, instance=instance)
         update_instance_from_dict(instance, validated_data)
+        return instance
+
+    @staticmethod
+    @transaction.atomic
+    def soft_delete(instance, actor):
+        """Мягкое удаление: скрыть из отчётов, оставить в БД и журнале."""
+        if instance.deleted_at is not None:
+            return instance
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=['deleted_at', 'updated_at'])
+        TransactionLog.objects.create(
+            transaction=instance,
+            action=TransactionLog.Action.SOFT_DELETED,
+            actor=actor,
+        )
+        return instance
+
+    @staticmethod
+    @transaction.atomic
+    def restore_transaction(instance, actor):
+        """Восстановить после мягкого удаления."""
+        if instance.deleted_at is None:
+            return instance
+        instance.deleted_at = None
+        instance.save(update_fields=['deleted_at', 'updated_at'])
+        TransactionLog.objects.create(
+            transaction=instance,
+            action=TransactionLog.Action.RESTORED,
+            actor=actor,
+        )
         return instance

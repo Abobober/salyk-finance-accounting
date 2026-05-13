@@ -11,8 +11,9 @@ from django.utils import timezone
 
 from activities.models import ActivityCode
 from finance.cache_utils import get_finance_cache_version
-from finance.models import Category, Transaction
+from finance.models import Category, Transaction, TransactionLog
 from finance.services.dashboard_service import get_dashboard_data
+from finance.services.transaction_service import TransactionService
 from organization.models import OrganizationActivity, OrganizationProfile
 from rest_framework.test import APIClient
 
@@ -90,6 +91,57 @@ class TransactionInvariantTests(TestCase):
 
         version_after = get_finance_cache_version(self.user.id)
         self.assertGreater(version_after, version_before)
+
+
+class TransactionSoftDeleteTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email='softdel@example.com', password='StrongPass123')
+        self.category = Category.objects.create(
+            name='Misc',
+            category_type=Category.CategoryType.EXPENSE,
+            user=self.user,
+        )
+
+    def _validated_new_tx(self):
+        return {
+            'category': self.category,
+            'transaction_type': Transaction.TransactionType.EXPENSE,
+            'amount': Decimal('10.00'),
+            'description': 'coffee',
+            'transaction_date': date(2026, 4, 1),
+            'payment_method': Transaction.PaymentMethod.CASH,
+            'is_business': False,
+            'is_taxable': True,
+            'activity_code': None,
+        }
+
+    def test_soft_delete_restore_and_logs(self):
+        tx = TransactionService.create_transaction(self.user, self._validated_new_tx())
+        self.assertEqual(
+            list(TransactionLog.objects.filter(transaction=tx).values_list('action', flat=True)),
+            [TransactionLog.Action.CREATED],
+        )
+
+        TransactionService.soft_delete(tx, self.user)
+        self.assertFalse(Transaction.objects.filter(pk=tx.pk).exists())
+        self.assertIsNotNone(Transaction.all_objects.get(pk=tx.pk).deleted_at)
+        self.assertEqual(
+            list(TransactionLog.objects.filter(transaction=tx).values_list('action', flat=True)),
+            [TransactionLog.Action.SOFT_DELETED, TransactionLog.Action.CREATED],
+        )
+
+        TransactionService.restore_transaction(Transaction.all_objects.get(pk=tx.pk), self.user)
+        self.assertTrue(Transaction.objects.filter(pk=tx.pk).exists())
+        self.assertIsNone(Transaction.objects.get(pk=tx.pk).deleted_at)
+        actions = set(TransactionLog.objects.filter(transaction=tx).values_list('action', flat=True))
+        self.assertEqual(
+            actions,
+            {
+                TransactionLog.Action.CREATED,
+                TransactionLog.Action.SOFT_DELETED,
+                TransactionLog.Action.RESTORED,
+            },
+        )
 
 
 class TaxReportV2ApiTests(TestCase):
