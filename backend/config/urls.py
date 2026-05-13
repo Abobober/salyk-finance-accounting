@@ -24,9 +24,12 @@ from rest_framework_simplejwt.views import (
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from core.admin_views import support_dashboard
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('admin/support-dashboard/', support_dashboard, name='support-dashboard'),
 
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

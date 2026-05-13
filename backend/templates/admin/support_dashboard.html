@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Дашборд поддержки{% endblock %}
+{% block content %}
+<h1>Дашборд техподдержки</h1>
+<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+    <div style="border:1px solid #ccc; padding:10px; width:200px;">
+        <h3>Пользователи</h3>
+        <p>Всего: {{ total_users }}</p>
+        <p>Не завершили онбординг: {{ incomplete_onboarding }}</p>
+    </div>
+    <div style="border:1px solid #ccc; padding:10px; width:200px;">
+        <h3>Транзакции</h3>
+        <p>Всего: {{ total_transactions }}</p>
+        <p>Удалено: {{ deleted_transactions }}</p>
+        <p>За сегодня: {{ transactions_today }}</p>
+        <p>Доход сегодня: {{ income_today }} KGS</p>
+    </div>
+</div>
+<h2>Последние 10 транзакций</h2>
+<table style="width:100%">
+    <tr><th>ID</th><th>Пользователь</th><th>Дата</th><th>Сумма</th><th>Тип</th></tr>
+    {% for t in recent_transactions %}
+    <tr>
+        <td>{{ t.id }}</td>
+        <td>{{ t.user.email }}</td>
+        <td>{{ t.transaction_date }}</td>
+        <td>{{ t.amount }}</td>
+        <td>{{ t.get_transaction_type_display }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

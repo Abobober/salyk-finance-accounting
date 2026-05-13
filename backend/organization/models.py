@@ -86,6 +86,8 @@ class OrganizationProfile(models.Model):
             })
 
     class Meta:
+        verbose_name = "Организация"
+        verbose_name_plural = "Организации"
         constraints = [
             models.CheckConstraint(
                 condition=(

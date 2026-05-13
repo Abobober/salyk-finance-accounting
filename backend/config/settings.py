@@ -42,8 +42,8 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 INSTALLED_APPS = [
-    'jazzmin',
     'django.contrib.admin',
+    'django_admin_listfilter_dropdown',   
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -130,7 +130,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -211,50 +211,4 @@ CELERY_BEAT_SCHEDULE = {
 AUTH_USER_MODEL = 'users.CustomUser'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-JAZZMIN_SETTINGS = {
-    'site_header': 'Панель администратора',
-    'site_brand': 'AIcountant',
-    'welcome_sign': 'Доступ только для персонала. Не передавайте данные пользователей третьим лицам.',
-    'search_model': ['users.CustomUser', 'finance.Transaction'],
-    'topmenu_links': [],
-    'show_sidebar': True,
-    'navigation_expanded': False,
-    'order_with_respect_to': ['users', 'organization', 'finance', 'auth'],
-    'related_modal_active': False,
-    'show_ui_builder': False,
-    'show_theme_chooser': False,
-    'use_google_fonts_cdn': False,
-    'icons': {
-        'users.CustomUser': 'fas fa-user',
-        'finance.Transaction': 'fas fa-exchange-alt',
-        'finance.TransactionLog': 'fas fa-history',
-        'finance.Category': 'fas fa-tags',
-        'organization.OrganizationProfile': 'fas fa-building',
-    },
-    'default_icon_parents': 'fas fa-folder',
-    'default_icon_children': 'fas fa-circle',
-}
 
-JAZZMIN_UI_TWEAKS = {
-    'navbar_small_text': False,
-    'footer_small_text': True,
-    'body_small_text': False,
-    'brand_small_text': False,
-    'brand_colour': 'navbar-primary',
-    'accent': 'accent-primary',
-    'navbar': 'navbar-dark',
-    'no_navbar_border': False,
-    'sidebar': 'sidebar-dark-primary',
-    'sidebar_nav_small_text': False,
-    'sidebar_disable_expand': False,
-    'sidebar_nav_child_indent': True,
-    'sidebar_nav_compact_style': False,
-    'sidebar_nav_legacy_style': False,
-    'sidebar_nav_flat_style': False,
-    'theme': 'default',
-    'dark_mode_theme': None,
-    'button_classes': {
-        'primary': 'btn-primary',
-        'secondary': 'btn-secondary',
-    },
-}

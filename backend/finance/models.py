@@ -31,6 +31,7 @@ class Category(models.Model):
         return f"{self.name} ({self.get_category_type_display()})"
 
     class Meta:
+        verbose_name_plural = "Категории"
         ordering = ['category_type', 'name']
         constraints = [
             models.UniqueConstraint(fields=['user', 'name', 'category_type'], name='unique_category_per_user')
@@ -81,7 +82,15 @@ class Transaction(models.Model):
         blank=True,
         db_index=True,
         verbose_name='Дата удаления',
-        help_text='Мягкое удаление: запись скрыта из API и отчётов, но хранится в БД.',
+        help_text='Запись скрыта из API и отчётов, но хранится в БД.',
+    )
+    modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_transactions',
+        verbose_name='Последнее изменение'
     )
 
     def clean(self):
@@ -106,6 +115,7 @@ class Transaction(models.Model):
         return f"{self.get_transaction_type_display()} {self.amount} ({self.transaction_date})"
 
     class Meta:
+        verbose_name_plural = "Транзакции"
         ordering = ['-transaction_date', '-created_at']
         indexes = [
             models.Index(fields=["user"]),
@@ -131,7 +141,7 @@ class Transaction(models.Model):
 
 
 class TransactionLog(models.Model):
-    """Журнал действий с транзакцией (аудит для поддержки и восстановления)."""
+    """Журнал действий с транзакцией"""
 
     class Action(models.TextChoices):
         CREATED = 'created', 'Создание'
