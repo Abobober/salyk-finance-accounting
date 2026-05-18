@@ -8,22 +8,55 @@ from .services import get_or_create_organization_profile
 class OrganizationProfileSerializer(serializers.ModelSerializer):
     tax_period_type_display = serializers.CharField(source='get_tax_period_type_display', read_only=True)
     tax_period_preset_display = serializers.CharField(source='get_tax_period_preset_display', read_only=True)
+    text_fields_to_normalize = (
+        'tin',
+        'inn',
+        'taxpayer_name',
+        'tax_office_code',
+        'tax_office_name',
+        'tax_authority_code',
+        'tax_authority_name',
+        'contact_phone',
+    )
 
     class Meta:
         model = OrganizationProfile
         fields = (
             'org_type', 'tax_regime', 'onboarding_status',
+            'tin', 'inn', 'taxpayer_name',
+            'tax_office_code', 'tax_office_name',
+            'tax_authority_code', 'tax_authority_name',
+            'contact_phone',
             'tax_period_type', 'tax_period_type_display',
             'tax_period_preset', 'tax_period_preset_display',
             'tax_period_custom_day',
         )
         read_only_fields = ('onboarding_status', 'tax_period_type_display', 'tax_period_preset_display')
 
+    def _normalize_text_field(self, attrs, field_name):
+        if field_name not in attrs:
+            return
+
+        value = attrs[field_name]
+        if value is None:
+            return
+
+        normalized_value = value.strip()
+        if not normalized_value:
+            raise serializers.ValidationError({
+                field_name: 'This field may not be blank.',
+            })
+
+        attrs[field_name] = normalized_value
+
     def validate(self, attrs):
         instance = self.instance
         tax_period_type = attrs['tax_period_type'] if 'tax_period_type' in attrs else (instance.tax_period_type if instance else None)
         tax_period_preset = attrs['tax_period_preset'] if 'tax_period_preset' in attrs else (instance.tax_period_preset if instance else None)
         tax_period_custom_day = attrs['tax_period_custom_day'] if 'tax_period_custom_day' in attrs else (instance.tax_period_custom_day if instance else None)
+
+        for field_name in self.text_fields_to_normalize:
+            self._normalize_text_field(attrs, field_name)
 
         if tax_period_type == OrganizationProfile.TaxPeriodType.CUSTOM:
             tax_period_preset = None
@@ -64,6 +97,11 @@ class OrganizationProfileSerializer(serializers.ModelSerializer):
 
 
 class OnboardingFinalizeSerializer(serializers.ModelSerializer):
+    """
+    Завершение онбординга: те же поля, что собирает SPA (ИНН, налоговый орган и т.д.).
+    Поля tin / tax_office_* — необязательны; при пустом tin копируем ИНН для совместимости со старым кодом отчётов.
+    """
+
     class Meta:
         model = OrganizationProfile
         fields = ()
@@ -74,6 +112,20 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Organization type is required.')
         if not profile.tax_regime:
             raise serializers.ValidationError('Tax regime is required.')
+        if not profile.tax_period_type:
+            raise serializers.ValidationError('Tax period is required.')
+
+        if not (profile.inn or '').strip():
+            raise serializers.ValidationError('INN is required.')
+        if not (profile.taxpayer_name or '').strip():
+            raise serializers.ValidationError('Taxpayer name is required.')
+        if not (profile.tax_authority_code or '').strip():
+            raise serializers.ValidationError('Tax authority code is required.')
+        if not (profile.tax_authority_name or '').strip():
+            raise serializers.ValidationError('Tax authority name is required.')
+        if not (profile.contact_phone or '').strip():
+            raise serializers.ValidationError('Contact phone is required.')
+
         if not profile.activities.exists():
             raise serializers.ValidationError('At least one activity is required.')
         if not profile.activities.filter(is_primary=True).exists():
@@ -81,6 +133,9 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        inn = (instance.inn or '').strip()
+        if inn and not (instance.tin or '').strip():
+            instance.tin = inn
         instance.onboarding_status = OrganizationProfile.OnboardingStatus.COMPLETED
         instance.save()
         return instance

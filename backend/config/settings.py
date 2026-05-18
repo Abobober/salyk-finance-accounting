@@ -43,6 +43,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
+    'django_admin_listfilter_dropdown',   
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -129,7 +130,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -209,4 +210,6 @@ CELERY_BEAT_SCHEDULE = {
 
 AUTH_USER_MODEL = 'users.CustomUser'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
 

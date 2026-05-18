@@ -81,6 +81,15 @@ export function createAiSessionId() {
 
 function cleanupAiLine(line: string) {
   return line
+    .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\sum_\{([^}]*)\}\s*/g, 'сумма по ')
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1 / $2')
+    .replace(/\\cdot/g, ' * ')
+    .replace(/\\times/g, ' * ')
+    .replace(/\\%/g, '%')
+    .replace(/[{}]/g, '')
+    // Strip CJK chars/noise that sometimes appears in model output.
+    .replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g, '')
     .replace(/^#{1,6}\s*/, '')
     .replace(/^\*+\s*/, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -94,7 +103,7 @@ function cleanupAiLine(line: string) {
     .replace(/\bnon[- ]?cash\b/gi, 'безнал')
     .replace(/Cash_доход/gi, 'Наличный доход')
     .replace(/NonCash_доход/gi, 'Безналичный доход')
-    .replace(/\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
     .trim()
 }
 
@@ -109,72 +118,25 @@ function shortenAiLine(line: string, maxLength = 170) {
 }
 
 export function formatAiAssistantReply(raw: string) {
-  const normalized = raw
-    .replace(/\r\n/g, '\n')
-    .replace(/[\u00A0\u202F\u2009]/g, ' ')
-    .replace(/([.!?])\s+(?=\d+\.\s+[А-ЯA-Z])/g, '$1\n')
+  const normalized = raw.replace(/\r\n/g, '\n').replace(/[\u00A0\u202F\u2009]/g, ' ')
+  const lines = normalized
+    .split('\n')
+    .map((line) => cleanupAiLine(line))
+    .filter(Boolean)
 
-  const skipSectionPattern =
-    /частые вопросы|faq|пример расч[её]та|что требуется|следующий шаг|если у вас уже есть|готов предоставить/i
-  const skipLinePattern =
-    /^[-=]{3,}$|^какие элементы входят|^формула расч[её]та|^определяем суммы$|^вычисляем налог$|^оплата обязательных взносов$|^итого к уплате/i
-
-  const collected: string[] = []
-  let skipSection = false
-
-  for (const rawLine of normalized.split('\n')) {
-    if (rawLine.includes('|')) {
-      continue
-    }
-
-    const cleaned = cleanupAiLine(rawLine)
-    if (!cleaned) {
-      continue
-    }
-
-    const headingText = cleaned.replace(/^\d+\.\s*/, '')
-    const isSectionHeading = rawLine.trim().startsWith('#') || /^\d+\.\s+/.test(cleaned)
-
-    if (isSectionHeading && skipSectionPattern.test(headingText)) {
-      skipSection = true
-      continue
-    }
-
-    if (isSectionHeading) {
-      skipSection = false
-    }
-
-    if (skipSection || skipLinePattern.test(headingText)) {
-      continue
-    }
-
-    collected.push(cleaned)
+  if (!lines.length) {
+    return cleanupAiLine(raw)
   }
 
-  const deduped = collected.filter((line, index, all) => {
-    const normalizedLine = line.toLowerCase()
-    if (normalizedLine.length < 12) {
+  const deduped = lines.filter((line, index) => {
+    if (line.length < 2) {
       return false
     }
-    return all.findIndex((item) => item.toLowerCase() === normalizedLine) === index
+    return line.toLowerCase() !== (lines[index - 1] ?? '').toLowerCase()
   })
 
-  if (!deduped.length) {
-    return cleanupAiLine(raw).slice(0, 400)
-  }
-
-  const summary = shortenAiLine(
-    deduped[0].replace(/^ответ по расч[её]ту налога\s*[—-]\s*/i, '').replace(/^ответ\s*[—-]\s*/i, ''),
-    150,
-  )
-
-  const details = deduped
-    .slice(1)
-    .filter((line) => line.toLowerCase() !== summary.toLowerCase())
-    .slice(0, 4)
-    .map((line) => `- ${shortenAiLine(line)}`)
-
-  return [summary, ...details].join('\n')
+  // Keep the full answer body and only trim very long individual lines.
+  return deduped.map((line) => shortenAiLine(line, 500)).join('\n')
 }
 
 export function getPresetRange(preset: Exclude<DashboardPreset, 'custom'>) {

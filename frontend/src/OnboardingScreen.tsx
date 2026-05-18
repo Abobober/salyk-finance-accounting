@@ -95,12 +95,18 @@ export function OnboardingScreen({
     return () => window.clearTimeout(timer)
   }, [activitySearch])
 
-  const saveProfile = async (data: Parameters<typeof updateOrganizationProfile>[0]) => {
+  const saveProfile = async (
+    data: Parameters<typeof updateOrganizationProfile>[0],
+    successMessage?: string,
+  ) => {
     setSaving(true)
     try {
       const response = await updateOrganizationProfile(data)
-      setProfile(response)
+      setProfile((current) => (current ? { ...current, ...response } : response))
       setStatus(await getOrganizationStatus())
+      if (successMessage) {
+        pushNotice('success', successMessage)
+      }
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось сохранить настройки.')
     } finally {
@@ -158,8 +164,53 @@ export function OnboardingScreen({
   }
 
   const finishOnboarding = async () => {
+    if (!profile) {
+      return
+    }
+
+    const missingRequiredFields: string[] = []
+    if (!profile.org_type) {
+      missingRequiredFields.push('форма бизнеса')
+    }
+    if (!profile.tax_regime) {
+      missingRequiredFields.push('налоговый режим')
+    }
+    if (!activityReady) {
+      missingRequiredFields.push('основной вид деятельности')
+    }
+    if (!profile.inn?.trim()) {
+      missingRequiredFields.push('ИНН')
+    }
+    if (!profile.taxpayer_name?.trim()) {
+      missingRequiredFields.push('ФИО/наименование налогоплательщика')
+    }
+    if (!profile.tax_authority_code?.trim()) {
+      missingRequiredFields.push('код налогового органа')
+    }
+    if (!profile.tax_authority_name?.trim()) {
+      missingRequiredFields.push('наименование налогового органа')
+    }
+    if (!profile.contact_phone?.trim()) {
+      missingRequiredFields.push('контактный телефон')
+    }
+    if (!profile.tax_period_type) {
+      missingRequiredFields.push('налоговый период')
+    }
+    if (missingRequiredFields.length) {
+      pushNotice('error', `Заполните перед завершением: ${missingRequiredFields.join(', ')}.`)
+      return
+    }
+
     setSaving(true)
     try {
+      const updatedProfile = await updateOrganizationProfile({
+        inn: profile.inn ?? '',
+        contact_phone: profile.contact_phone ?? '',
+        taxpayer_name: profile.taxpayer_name ?? '',
+        tax_authority_code: profile.tax_authority_code ?? '',
+        tax_authority_name: profile.tax_authority_name ?? '',
+      })
+      setProfile((current) => (current ? { ...current, ...updatedProfile } : updatedProfile))
       await finalizeOnboarding()
       await onCompleted()
       pushNotice('success', 'Настройка завершена.')
@@ -175,13 +226,13 @@ export function OnboardingScreen({
   }
 
   const activityReady = activities.some((activity) => activity.is_primary)
-  const extendedOrganizationReady = Boolean(
-    profile.inn?.trim() &&
-      profile.taxpayer_name?.trim() &&
-      profile.tax_authority_code?.trim() &&
-      profile.tax_authority_name?.trim() &&
-      profile.contact_phone?.trim(),
-  )
+  const stiMissingFields = [
+    !profile.inn?.trim() ? 'ИНН' : null,
+    !profile.taxpayer_name?.trim() ? 'ФИО/наименование налогоплательщика' : null,
+    !profile.tax_authority_code?.trim() ? 'код налогового органа' : null,
+    !profile.tax_authority_name?.trim() ? 'наименование налогового органа' : null,
+    !profile.contact_phone?.trim() ? 'контактный телефон' : null,
+  ].filter(Boolean) as string[]
 
   return (
     <div className="onboarding-shell">
@@ -496,76 +547,67 @@ export function OnboardingScreen({
                 Добавить
               </button>
             </form>
-            <Section title="Реквизиты для STI-091" eyebrow="Шаг 5">
-              <div className="stack-sm">
-                <p className="muted">
-                  Эти данные обязательны для автоматического заполнения отчета по единому налогу.
-                </p>
-                <div className="field-grid two">
-                  <label className="field">
-                    <span>ИНН</span>
-                    <input
-                      value={profile.inn ?? ''}
-                      onChange={(event) => setProfile({ ...profile, inn: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Контактный телефон</span>
-                    <input
-                      value={profile.contact_phone ?? ''}
-                      onChange={(event) => setProfile({ ...profile, contact_phone: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>ФИО / Наименование налогоплательщика</span>
-                    <input
-                      value={profile.taxpayer_name ?? ''}
-                      onChange={(event) => setProfile({ ...profile, taxpayer_name: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Код налогового органа</span>
-                    <input
-                      value={profile.tax_authority_code ?? ''}
-                      onChange={(event) => setProfile({ ...profile, tax_authority_code: event.target.value })}
-                      required
-                    />
-                  </label>
-                </div>
+            <div className="onboarding-subsection stack-sm">
+              <div>
+                <p className="panel-eyebrow">Шаг 5</p>
+                <h3>Реквизиты для STI-091</h3>
+              </div>
+              <p className="muted">
+                Эти данные обязательны для автоматического заполнения отчета по единому налогу.
+              </p>
+              {stiMissingFields.length ? (
+                <p className="muted">Осталось заполнить: {stiMissingFields.join(', ')}.</p>
+              ) : (
+                <p className="muted">Все обязательные реквизиты заполнены.</p>
+              )}
+              <div className="field-grid two">
                 <label className="field">
-                  <span>Наименование налогового органа</span>
+                  <span>ИНН</span>
                   <input
-                    value={profile.tax_authority_name ?? ''}
-                    onChange={(event) => setProfile({ ...profile, tax_authority_name: event.target.value })}
+                    value={profile.inn ?? ''}
+                    onChange={(event) => setProfile({ ...profile, inn: event.target.value })}
                     required
                   />
                 </label>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    void saveProfile({
-                      inn: profile.inn ?? '',
-                      contact_phone: profile.contact_phone ?? '',
-                      taxpayer_name: profile.taxpayer_name ?? '',
-                      tax_authority_code: profile.tax_authority_code ?? '',
-                      tax_authority_name: profile.tax_authority_name ?? '',
-                    })
-                  }
-                  disabled={saving}
-                >
-                  Сохранить реквизиты
-                </button>
+                <label className="field">
+                  <span>Контактный телефон</span>
+                  <input
+                    value={profile.contact_phone ?? ''}
+                    onChange={(event) => setProfile({ ...profile, contact_phone: event.target.value })}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  <span>ФИО / Наименование налогоплательщика</span>
+                  <input
+                    value={profile.taxpayer_name ?? ''}
+                    onChange={(event) => setProfile({ ...profile, taxpayer_name: event.target.value })}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  <span>Код налогового органа</span>
+                  <input
+                    value={profile.tax_authority_code ?? ''}
+                    onChange={(event) => setProfile({ ...profile, tax_authority_code: event.target.value })}
+                    required
+                  />
+                </label>
               </div>
-            </Section>
+              <label className="field">
+                <span>Наименование налогового органа</span>
+                <input
+                  value={profile.tax_authority_name ?? ''}
+                  onChange={(event) => setProfile({ ...profile, tax_authority_name: event.target.value })}
+                  required
+                />
+              </label>
+            </div>
 
             <button
               type="button"
               className="primary-button"
-              disabled={saving || !profile.org_type || !profile.tax_regime || !activityReady || !extendedOrganizationReady}
+              disabled={saving}
               onClick={() => void finishOnboarding()}
             >
               Завершить
