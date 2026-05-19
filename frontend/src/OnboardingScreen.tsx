@@ -250,6 +250,20 @@ export function OnboardingScreen({
       return
     }
 
+    // Validate INN: exactly 14 digits
+    const inn = (profile.inn ?? '').trim()
+    if (!/^\d{14}$/.test(inn)) {
+      pushNotice('error', 'ИНН должен содержать ровно 14 цифр.')
+      return
+    }
+
+    // Validate contact phone: +996XXXXXXXXX (без пробелов)
+    const phone = (profile.contact_phone ?? '').trim()
+    if (!/^\+996\d{9}$/.test(phone)) {
+      pushNotice('error', 'Контактный телефон должен быть в формате +996XXXXXXXXX (без пробелов).')
+      return
+    }
+
     setSaving(true)
     try {
       const updatedProfile = await updateOrganizationProfile({
@@ -622,7 +636,38 @@ export function OnboardingScreen({
                   <span>Контактный телефон</span>
                   <input
                     value={profile.contact_phone ?? ''}
-                    onChange={(event) => setProfile({ ...profile, contact_phone: event.target.value })}
+                    onFocus={() =>
+                      setProfile((prev) =>
+                        prev && !(prev.contact_phone ?? '') ? { ...prev, contact_phone: '+996' } : prev,
+                      )
+                    }
+                    onChange={(event) =>
+                      setProfile((prev) => (prev ? { ...prev, contact_phone: event.target.value.replace(/\s+/g, '') } : prev))
+                    }
+                    onBlur={() => {
+                      setProfile((prev) => {
+                        if (!prev) return prev
+                        const raw = (prev.contact_phone ?? '').trim()
+                        const digits = raw.replace(/\D/g, '')
+                        if (!digits) return { ...prev, contact_phone: '' }
+
+                        if (raw.startsWith('+996')) {
+                          // keep +996 and up to 9 digits
+                          const after = digits.startsWith('996') ? digits.slice(3) : digits
+                          return { ...prev, contact_phone: '+996' + after.slice(0, 9) }
+                        }
+
+                        if (digits.startsWith('996') && digits.length >= 12) {
+                          // user typed full 996+9digits
+                          return { ...prev, contact_phone: '+' + digits.slice(0, 12) }
+                        }
+
+                        // default: prefix local digits with +996
+                        const last9 = digits.slice(-9)
+                        return { ...prev, contact_phone: '+996' + last9 }
+                      })
+                    }}
+                    placeholder="+996555555555"
                     required
                   />
                 </label>

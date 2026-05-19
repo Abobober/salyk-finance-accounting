@@ -357,18 +357,20 @@ export function WorkspaceScreen({
   }
 
   const saveTransaction = async (draft: TransactionDraft, existingId?: number) => {
-    if (draft.is_business && !draft.activity_code) {
+    // All transactions are considered business; require activity_code
+    if (!draft.activity_code) {
       pushNotice('error', 'Для бизнес-операции нужно выбрать вид деятельности.')
       return false
     }
 
     setTransactionSubmitting(true)
     try {
+      const payload = { ...draft, is_business: true }
       if (existingId) {
-        await updateTransaction(existingId, draft)
+        await updateTransaction(existingId, payload)
         pushNotice('success', 'Операция обновлена.')
       } else {
-        await createTransaction(draft)
+        await createTransaction(payload)
         pushNotice('success', 'Операция добавлена.')
         resetComposer()
       }
@@ -825,23 +827,7 @@ export function WorkspaceScreen({
                       </select>
                     </label>
 
-                    <label className="field">
-                      <span>Назначение</span>
-                      <select
-                        value={filters.is_business}
-                        onChange={(event) => {
-                          setFilters({
-                            ...filters,
-                            is_business: event.target.value as DashboardFilters['is_business'],
-                          })
-                          setTransactionOffset(0)
-                        }}
-                      >
-                        <option value="">Все</option>
-                        <option value="true">Бизнес</option>
-                        <option value="false">Личное</option>
-                      </select>
-                    </label>
+                    {/* Назначение (is_business) скрыто — все операции считаются бизнесом */}
 
                     <label className="field">
                       <span>Налог</span>
@@ -863,24 +849,23 @@ export function WorkspaceScreen({
                   </div>
 
                   <div className="toolbar-inline">
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => {
-                        setFilters({
-                          ...filters,
-                          category: '',
-                          activity_code: '',
-                          payment_method: '',
-                          is_business: '',
-                          is_taxable: '',
-                        })
-                        setTransactionOffset(0)
-                        setReportOffset(0)
-                      }}
-                    >
-                      Сбросить доп. фильтры
-                    </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => {
+                          setFilters({
+                            ...filters,
+                            category: '',
+                            activity_code: '',
+                            payment_method: '',
+                            is_taxable: '',
+                          })
+                          setTransactionOffset(0)
+                          setReportOffset(0)
+                        }}
+                      >
+                        Сбросить доп. фильтры
+                      </button>
                   </div>
                 </div>
               ) : null}
@@ -1098,9 +1083,6 @@ export function WorkspaceScreen({
                           <span className="tag neutral">{transaction.activity_code_name || 'Без деятельности'}</span>
                           <span className="tag neutral">
                             {transaction.payment_method === 'cash' ? 'Наличные' : 'Безнал'}
-                          </span>
-                          <span className="tag neutral">
-                            {transaction.is_business ? 'Бизнес' : 'Личное'}
                           </span>
                           <span className="tag neutral">
                             {transaction.is_taxable ? 'Облагается' : 'Не облагается'}
@@ -1854,7 +1836,7 @@ export function WorkspaceScreen({
               description: editingTransaction.description,
               transaction_date: editingTransaction.transaction_date,
               payment_method: editingTransaction.payment_method,
-              is_business: editingTransaction.is_business,
+              is_business: true,
               is_taxable: editingTransaction.is_taxable,
               activity_code: editingTransaction.activity_code,
             }}
@@ -1867,7 +1849,7 @@ export function WorkspaceScreen({
                 description: value.description,
                 transaction_date: value.transaction_date,
                 payment_method: value.payment_method,
-                is_business: value.is_business,
+                is_business: true,
                 is_taxable: value.is_taxable,
                 activity_code: value.activity_code,
               })
@@ -1886,7 +1868,7 @@ export function WorkspaceScreen({
                   description: editingTransaction.description,
                   transaction_date: editingTransaction.transaction_date,
                   payment_method: editingTransaction.payment_method,
-                  is_business: editingTransaction.is_business,
+                  is_business: true,
                   is_taxable: editingTransaction.is_taxable,
                   activity_code: editingTransaction.activity_code,
                 },

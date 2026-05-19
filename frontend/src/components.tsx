@@ -573,28 +573,26 @@ export function TransactionForm({
           </select>
         </label>
 
-        {draft.is_business ? (
-          <label className="field">
-            <span>Вид деятельности</span>
-            <select
-              value={draft.activity_code ?? ''}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  activity_code: event.target.value ? Number(event.target.value) : null,
-                })
-              }
-              required={draft.is_business}
-            >
-              <option value="">Выберите вид деятельности</option>
-              {activities.map((activity) => (
-                <option key={activity.id} value={activity.activity}>
-                  {getActivityLabel(activity)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <label className="field">
+          <span>Вид деятельности</span>
+          <select
+            value={draft.activity_code ?? ''}
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                activity_code: event.target.value ? Number(event.target.value) : null,
+              })
+            }
+            required
+          >
+            <option value="">Выберите вид деятельности</option>
+            {activities.map((activity) => (
+              <option key={activity.id} value={activity.activity}>
+                {getActivityLabel(activity)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <label className="field">
@@ -608,21 +606,6 @@ export function TransactionForm({
       </label>
 
       <div className="toggle-row">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={draft.is_business}
-            onChange={(event) =>
-              setDraft({
-                ...draft,
-                is_business: event.target.checked,
-                activity_code: event.target.checked ? draft.activity_code : null,
-              })
-            }
-          />
-          <span>Бизнес-операция</span>
-        </label>
-
         <label className="check">
           <input
             type="checkbox"
