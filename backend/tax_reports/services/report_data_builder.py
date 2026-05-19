@@ -72,6 +72,36 @@ LINE_CONFIG = {
 }
 
 
+DEFAULT_RATE_BY_CELL = {
+    '051': Decimal('0.50'),
+    '054': Decimal('4.00'),
+    '057': Decimal('2.00'),
+    '061': Decimal('4.00'),
+    '064': Decimal('2.00'),
+    '068': Decimal('6.00'),
+    '071': Decimal('4.00'),
+    '075': Decimal('6.00'),
+    '078': Decimal('4.00'),
+    '131': Decimal('0.25'),
+    '134': Decimal('0.25'),
+    '137': Decimal('0.00'),
+    '140': Decimal('8.00'),
+    '143': Decimal('8.00'),
+    '146': Decimal('8.00'),
+    '149': Decimal('1.00'),
+    '152': Decimal('3.00'),
+    '155': Decimal('0.50'),
+    '158': Decimal('0.25'),
+    '161': Decimal('4.00'),
+    '164': Decimal('1.00'),
+    '167': Decimal('3.00'),
+    '171': Decimal('1.00'),
+    '174': Decimal('0.00'),
+    '177': Decimal('8.00'),
+    '180': Decimal('0.00'),
+}
+
+
 ADVANCE_CURRENT_TOTAL_AMOUNT_CELL = '182'
 ADVANCE_CURRENT_TOTAL_TAX_CELL = '183'
 ADVANCE_PREVIOUS_TOTAL_AMOUNT_CELL = '184'
@@ -99,6 +129,26 @@ ALL_FORM_CELLS = [
     '169', '170', '171', '172', '173', '174', '175', '176', '177', '178',
     '179', '180', '181', '182', '183', '184', '185', '186', '187',
 ]
+
+
+def _first_non_blank(*values) -> str:
+    for value in values:
+        text = (value or '').strip()
+        if text:
+            return text
+    return ''
+
+
+def _join_non_blank(*values) -> str:
+    return ' '.join((value or '').strip() for value in values if (value or '').strip())
+
+
+def _full_name(user) -> str:
+    return _join_non_blank(getattr(user, 'first_name', ''), getattr(user, 'last_name', ''))
+
+
+def _activity_code_prefix(activity) -> str:
+    return str(getattr(activity, 'code', '') or '').strip().split('.')[0]
 
 
 @dataclass
@@ -133,10 +183,29 @@ class STI091ReportDataBuilder:
         self.activity_line_map = activity_line_map or {}
         self.current_period_advance_payments = current_period_advance_payments or []
         self.previous_period_advance_offsets = previous_period_advance_offsets or []
-        self.tin = (tin or '').strip()
-        self.taxpayer_name = (taxpayer_name or self.user.get_full_name() or self.user.email or '').strip()
-        self.tax_office = (tax_office or '').strip()
-        self.contact_phone = (contact_phone or getattr(self.user, 'phone', '') or '').strip()
+        self.tax_office_code = _first_non_blank(
+            getattr(self.organization, 'tax_authority_code', ''),
+            getattr(self.organization, 'tax_office_code', ''),
+        )
+        self.tax_office_name = _first_non_blank(
+            getattr(self.organization, 'tax_authority_name', ''),
+            getattr(self.organization, 'tax_office_name', ''),
+        )
+        organization_tax_office = _join_non_blank(self.tax_office_code, self.tax_office_name)
+        user_full_name = _full_name(self.user)
+        taxpayer_name_fallback = user_full_name if self.organization.org_type == self.organization.OrgType.IE else ''
+        self.tin = _first_non_blank(tin, getattr(self.organization, 'inn', ''), getattr(self.organization, 'tin', ''))
+        self.taxpayer_name = _first_non_blank(
+            taxpayer_name,
+            getattr(self.organization, 'taxpayer_name', ''),
+            taxpayer_name_fallback,
+        )
+        self.tax_office = _first_non_blank(tax_office, organization_tax_office)
+        self.contact_phone = _first_non_blank(
+            contact_phone,
+            getattr(self.organization, 'contact_phone', ''),
+            getattr(self.user, 'phone', ''),
+        )
         self.issues: list[dict[str, object]] = []
     def get_period_dates(self):
         if self.quarter == 1:
@@ -153,7 +222,6 @@ class STI091ReportDataBuilder:
             Transaction.objects.filter(
                 user=self.user,
                 transaction_type=Transaction.TransactionType.INCOME,
-                is_business=True,
                 is_taxable=True,
                 transaction_date__range=(start, end),
             ).select_related('activity_code').order_by('transaction_date', 'id')
@@ -182,7 +250,16 @@ class STI091ReportDataBuilder:
     def _rate(self, value: Decimal) -> str:
         return f'{self._quantize(value):.2f}'
 
-    def _resolve_transaction_rate(self, transaction, org_activity_map: dict[int, OrganizationActivity]):
+    def _default_rate(self, rate_cell: str) -> Decimal:
+        return DEFAULT_RATE_BY_CELL.get(rate_cell, ZERO)
+
+    def _resolve_transaction_rate(
+        self,
+        transaction,
+        org_activity_map: dict[int, OrganizationActivity],
+        default_rate: Decimal,
+        fallback_org_activity: OrganizationActivity | None = None,
+    ):
         snapshot_rate = (
             transaction.cash_tax_rate
             if transaction.payment_method == Transaction.PaymentMethod.CASH
@@ -191,9 +268,9 @@ class STI091ReportDataBuilder:
         if snapshot_rate is not None:
             return Decimal(snapshot_rate), 'transaction_snapshot'
 
-        org_activity = org_activity_map.get(transaction.activity_code_id)
+        org_activity = org_activity_map.get(transaction.activity_code_id) or fallback_org_activity
         if org_activity is None:
-            return ZERO, 'default_zero'
+            return default_rate, 'form_default'
 
         fallback_rate = (
             org_activity.cash_tax_rate
@@ -201,22 +278,34 @@ class STI091ReportDataBuilder:
             else org_activity.non_cash_tax_rate
         )
         if fallback_rate is None:
-            return ZERO, 'default_zero'
+            return default_rate, 'form_default'
         return Decimal(fallback_rate), 'organization_activity'
 
-    def _resolve_line_for_activity(self, activity):
+    def _resolve_line_for_activity(self, activity, fallback_activity=None):
         if activity is None:
-            self._add_issue(
-                'missing_activity_code',
-                'error',
-                'У транзакции отсутствует activity_code, невозможно сопоставить строку STI-091.',
-            )
-            return 'other'
+            if fallback_activity is not None:
+                self._add_issue(
+                    'missing_activity_code_used_primary',
+                    'warning',
+                    'У транзакции отсутствует activity_code, применен основной вид деятельности профиля.',
+                )
+                activity = fallback_activity
+            else:
+                self._add_issue(
+                    'missing_activity_code',
+                    'warning',
+                    'У транзакции отсутствует activity_code, сумма включена в строку "Прочие виды деятельности".',
+                )
+                return 'other'
 
         candidates = [str(activity.id), getattr(activity, 'code', None)]
         for candidate in candidates:
             if candidate and candidate in self.activity_line_map:
                 return self.activity_line_map[candidate]
+
+        if _activity_code_prefix(activity) == '56':
+            return 'public_catering'
+
         return 'other'
 
     def _advance_rows(self, rows: list[dict]):
@@ -251,6 +340,8 @@ class STI091ReportDataBuilder:
             '102': tin_value,
             '103': taxpayer_name_value,
             '104': tax_office_value,
+            '104_code': self.tax_office_code,
+            '104_name': self.tax_office_name,
             '105': contact_phone_value,
             '115': contact_phone_value,
             '201': date_from.strftime('%d.%m.%Y'),
@@ -273,7 +364,8 @@ class STI091ReportDataBuilder:
     def build_report_data(self):
         date_from, date_to = self.get_period_dates()
         transactions = self.get_transactions()
-        _org_activities, org_activity_map = self.get_org_activities()
+        org_activities, org_activity_map = self.get_org_activities()
+        primary_org_activity = next((item for item in org_activities if item.is_primary), None)
 
         cells: dict[str, object] = self._initial_cells(date_from, date_to)
         buckets: dict[str, Bucket | dict[str, Bucket]] = {}
@@ -304,14 +396,31 @@ class STI091ReportDataBuilder:
 
         for tx in transactions:
             amount = self._quantize(tx.amount or ZERO)
-            line_key = self._resolve_line_for_activity(tx.activity_code)
-            rate, rate_source = self._resolve_transaction_rate(tx, org_activity_map)
+            if not tx.is_business:
+                self._add_issue(
+                    'non_business_taxable_income_included',
+                    'warning',
+                    'Облагаемый доход без признака бизнес-операции включен в STI-091.',
+                    transaction_id=tx.id,
+                )
+            fallback_org_activity = primary_org_activity if tx.activity_code_id is None else None
+            fallback_activity = fallback_org_activity.activity if fallback_org_activity else None
+            line_key = self._resolve_line_for_activity(tx.activity_code, fallback_activity)
 
             config = LINE_CONFIG[line_key]
             if config['mode'] == 'split':
                 bucket = buckets[line_key][tx.payment_method]
+                _base_cell, rate_cell, _tax_cell = config[tx.payment_method]
             else:
                 bucket = buckets[line_key]
+                rate_cell = config['rate_cell']
+
+            rate, rate_source = self._resolve_transaction_rate(
+                tx,
+                org_activity_map,
+                self._default_rate(rate_cell),
+                fallback_org_activity,
+            )
 
             bucket.base += amount
             bucket.transaction_count += 1
@@ -329,18 +438,18 @@ class STI091ReportDataBuilder:
                     if len(bucket.rates) == 1:
                         cells[rate_cell] = self._rate(next(iter(bucket.rates)))
                     elif len(bucket.rates) > 1:
-                        cells[rate_cell] = ''
+                        cells[rate_cell] = self._rate(self._default_rate(rate_cell))
                         self._add_issue(
                             'multiple_rates_for_cell',
-                            'error',
-                            'В одной строке формы обнаружено несколько ставок. Требуется ручная детализация.',
+                            'warning',
+                            'В одной строке формы обнаружено несколько ставок, применена ставка формы.',
                             line_key=line_key,
                             payment_method=payment_method,
                             cell=rate_cell,
                             rates=[self._rate(rate) for rate in sorted(bucket.rates)],
                         )
                     else:
-                        cells[rate_cell] = self._rate(ZERO)
+                        cells[rate_cell] = self._rate(self._default_rate(rate_cell))
                     total_tax += self._compute_formula_tax(cells, base_cell, rate_cell, tax_cell, bucket=bucket)
                 cells[config['total_cell']] = self._money(total_tax)
             else:
@@ -349,17 +458,17 @@ class STI091ReportDataBuilder:
                 if len(bucket.rates) == 1:
                     cells[config['rate_cell']] = self._rate(next(iter(bucket.rates)))
                 elif len(bucket.rates) > 1:
-                    cells[config['rate_cell']] = ''
+                    cells[config['rate_cell']] = self._rate(self._default_rate(config['rate_cell']))
                     self._add_issue(
                         'multiple_rates_for_cell',
-                        'error',
-                        'В одной строке формы обнаружено несколько ставок. Требуется ручная детализация.',
+                        'warning',
+                        'В одной строке формы обнаружено несколько ставок, применена ставка формы.',
                         line_key=line_key,
                         cell=config['rate_cell'],
                         rates=[self._rate(rate) for rate in sorted(bucket.rates)],
                     )
                 else:
-                    cells[config['rate_cell']] = self._rate(ZERO)
+                    cells[config['rate_cell']] = self._rate(self._default_rate(config['rate_cell']))
                 self._compute_formula_tax(cells, config['base_cell'], config['rate_cell'], config['tax_cell'], bucket=bucket)
 
         cells['059'] = self._money(Decimal(cells['055']) + Decimal(cells['058']))
@@ -397,6 +506,8 @@ class STI091ReportDataBuilder:
                 '102': self.tin or TIN_PLACEHOLDER,
                 '103': self.taxpayer_name or HEADER_PLACEHOLDER,
                 '104': self.tax_office or HEADER_PLACEHOLDER,
+                '104_code': self.tax_office_code,
+                '104_name': self.tax_office_name,
                 '105': self.contact_phone or PHONE_PLACEHOLDER,
                 '115': self.contact_phone or PHONE_PLACEHOLDER,
             },
