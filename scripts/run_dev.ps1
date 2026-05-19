@@ -27,6 +27,9 @@ Write-Host "Superuser..." -ForegroundColor Cyan
 Write-Host "`nActivity codes..." -ForegroundColor Cyan
 & $Python manage.py import_activities_code
 
+Write-Host "`nTax orgs..." -ForegroundColor Cyan
+& $Python manage.py import_tax_offices tax_org.xlsx
+
 Write-Host "`nDemo data..." -ForegroundColor Cyan
 & $Python manage.py setup_demo_data --skip-if-populated
 

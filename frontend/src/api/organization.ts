@@ -130,3 +130,10 @@ export function deleteOrganizationActivity(id: number) {
 export function getTaxPeriod() {
   return apiRequest<TaxPeriodResponse>('/organization/tax-period/')
 }
+
+export function listTaxOffices(q?: string) {
+  return apiRequest<Array<{ code: string; name: string }>>(
+    `/organization/tax-offices/${toQueryString({ q })}`,
+  )
+}
+

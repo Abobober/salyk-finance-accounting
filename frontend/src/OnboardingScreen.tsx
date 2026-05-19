@@ -10,6 +10,7 @@ import {
   listOrganizationActivities,
   updateOrganizationActivity,
   updateOrganizationProfile,
+  listTaxOffices,
   type OrganizationActivity,
   type OrganizationProfile,
   type OrganizationStatusResponse,
@@ -19,6 +20,7 @@ import { ActivityPicker, Section } from './components'
 import type { NoticeTone, OrganizationActivityDraft } from './lib'
 
 const ACTIVITY_SEARCH_LIMIT = 50
+const TAX_OFFICE_INITIAL_SHOW = 2
 
 export function OnboardingScreen({
   user,
@@ -46,6 +48,10 @@ export function OnboardingScreen({
     non_cash_tax_rate: '0',
     is_primary: false,
   })
+  const [taxOfficeQuery, setTaxOfficeQuery] = useState('')
+  const [taxOfficeOptions, setTaxOfficeOptions] = useState<Array<{ code: string; name: string }>>([])
+  const [taxOfficeLoading, setTaxOfficeLoading] = useState(false)
+  const [taxOfficeVisibleCount, setTaxOfficeVisibleCount] = useState<number>(TAX_OFFICE_INITIAL_SHOW)
 
   async function loadOnboarding() {
     setLoading(true)
@@ -62,6 +68,14 @@ export function OnboardingScreen({
       setActivityOptions(activityCodesResponse.results)
       setActivityOptionsCount(activityCodesResponse.count)
       setActivityOffset(0)
+      try {
+        const taxResp = await listTaxOffices()
+        const count = Array.isArray(taxResp) ? taxResp.length : 0
+        setTaxOfficeOptions(taxResp)
+        setTaxOfficeVisibleCount(Math.min(TAX_OFFICE_INITIAL_SHOW, count))
+      } catch {
+        // ignore initial tax offices load errors
+      }
     } catch (error) {
       pushNotice('error', error instanceof Error ? error.message : 'Не удалось загрузить первичную настройку.')
     } finally {
@@ -95,6 +109,29 @@ export function OnboardingScreen({
     return () => window.clearTimeout(timer)
   }, [activitySearch])
 
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      const q = taxOfficeQuery.trim()
+      if (!q) {
+        setTaxOfficeOptions([])
+        setTaxOfficeVisibleCount(0)
+        return
+      }
+      setTaxOfficeLoading(true)
+      try {
+        const resp = await listTaxOffices(q)
+        setTaxOfficeOptions(resp)
+        setTaxOfficeVisibleCount(Math.min(TAX_OFFICE_INITIAL_SHOW, Array.isArray(resp) ? resp.length : 0))
+      } catch (err) {
+        // ignore search errors
+      } finally {
+        setTaxOfficeLoading(false)
+      }
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [taxOfficeQuery])
+
   const saveProfile = async (
     data: Parameters<typeof updateOrganizationProfile>[0],
     successMessage?: string,
@@ -113,6 +150,18 @@ export function OnboardingScreen({
       setSaving(false)
     }
   }
+
+  const handleSelectTaxOffice = async (code: string, name: string) => {
+    try {
+      await saveProfile({ tax_authority_code: code, tax_authority_name: name })
+      setTaxOfficeOptions([])
+      setTaxOfficeQuery('')
+    } catch (err) {
+      // saveProfile already reports errors
+    }
+  }
+
+  // tax offices are provided by backend (autoload/management). Frontend only lists and selects.
 
   const loadMoreActivities = async () => {
     const nextOffset = activityOffset + ACTIVITY_SEARCH_LIMIT
@@ -589,19 +638,68 @@ export function OnboardingScreen({
                   <span>Код налогового органа</span>
                   <input
                     value={profile.tax_authority_code ?? ''}
-                    onChange={(event) => setProfile({ ...profile, tax_authority_code: event.target.value })}
+                    onChange={(event) => {
+                      const v = event.target.value
+                      setProfile({ ...profile, tax_authority_code: v })
+                      setTaxOfficeQuery(v)
+                    }}
                     required
                   />
                 </label>
               </div>
-              <label className="field">
+              <label className="field" style={{ position: 'relative' }}>
                 <span>Наименование налогового органа</span>
                 <input
                   value={profile.tax_authority_name ?? ''}
-                  onChange={(event) => setProfile({ ...profile, tax_authority_name: event.target.value })}
+                  onChange={(event) => {
+                    const v = event.target.value
+                    setProfile({ ...profile, tax_authority_name: v })
+                    setTaxOfficeQuery(v)
+                  }}
                   required
                 />
+
+                {/* Render tax offices as a list (mini-table) like activities */}
               </label>
+
+              {taxOfficeLoading ? (
+                <div className="muted">Поиск...</div>
+              ) : taxOfficeOptions.length ? (
+                <div>
+                  <div className="mini-table">
+                    {taxOfficeOptions.slice(0, taxOfficeVisibleCount).map((o) => (
+                      <div key={o.code} className="mini-table-row">
+                        <div>
+                          <strong>{o.name}</strong>
+                          <p className="muted">{o.code}</p>
+                        </div>
+                        <div className="mini-table-actions">
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => void handleSelectTaxOffice(o.code, o.name)}
+                            disabled={saving}
+                          >
+                            Выбрать
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {taxOfficeVisibleCount < taxOfficeOptions.length ? (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => setTaxOfficeVisibleCount(taxOfficeOptions.length)}
+                        disabled={saving}
+                      >
+                        {`Показать еще (${taxOfficeOptions.length - taxOfficeVisibleCount})`}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null }
             </div>
 
             <button
