@@ -1,4 +1,5 @@
 from django.db import transaction
+import re
 from rest_framework import serializers
 
 from .models import OrganizationActivity, OrganizationProfile
@@ -125,6 +126,16 @@ class OnboardingFinalizeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Tax authority name is required.')
         if not (profile.contact_phone or '').strip():
             raise serializers.ValidationError('Contact phone is required.')
+
+        # Validate INN: exactly 14 digits
+        inn = (profile.inn or '').strip()
+        if not re.match(r'^\d{14}$', inn):
+            raise serializers.ValidationError({'inn': 'ИНН должен содержать ровно 14 цифр.'})
+
+        # Validate contact phone: +996XXXXXXXXX (without spaces)
+        phone = (profile.contact_phone or '').strip()
+        if not re.match(r'^\+996\d{9}$', phone):
+            raise serializers.ValidationError({'contact_phone': 'Контактный телефон должен быть в формате +996XXXXXXXXX (без пробелов).'})
 
         if not profile.activities.exists():
             raise serializers.ValidationError('At least one activity is required.')
