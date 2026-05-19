@@ -21,6 +21,9 @@ CYRILLIC_FONT_NAME = 'Helvetica'
 for candidate in (
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+    'C:/Windows/Fonts/arial.ttf',
+    'C:/Windows/Fonts/Arial.ttf',
+    'C:/Windows/Fonts/tahoma.ttf',
 ):
     if Path(candidate).exists():
         try:
@@ -36,6 +39,7 @@ PAGE1_FIELD_POSITIONS = {
     '102': ('left', 52, 83, 10),
     '103': ('left', 305, 83, 10),
     '104': ('left', 52, 114, 9),
+    '104_name': ('left', 112, 114, 9),
     '105': ('left', 442, 114, 9),
     '201': ('center', 183, 143, 9),
     '202': ('center', 353, 143, 9),
@@ -154,7 +158,7 @@ NUMERIC_LABEL_TOPS = {
     '163': 612.65, '164': 612.23, '165': 612.28,
     '166': 625.6, '167': 625.6, '168': 625.83,
     '169': 639.65,
-    '170': 658.3, '171': 658.7, '172': 659.3,
+    '170': 655.3, '171': 655.7, '172': 655.3,
     '173': 675.48, '174': 675.53, '175': 675.53,
     '176': 695.6, '177': 695.55, '178': 696.3,
     '179': 715.88, '180': 715.87, '181': 715.87,
@@ -242,6 +246,22 @@ class UnifiedTaxPDFGenerator:
     def _digits_only(value: object) -> str:
         return ''.join(ch for ch in str(value or '') if ch.isdigit())
 
+    @classmethod
+    def _tax_office_name(cls, header: dict) -> str:
+        name = cls._display_value(header.get('104_name'), keep_zeros=True)
+        if name:
+            return name
+
+        full_value = cls._display_value(header.get('104'), keep_zeros=True)
+        digits = cls._digits_only(full_value)
+        if not full_value or not digits:
+            return full_value
+
+        trimmed = full_value
+        if trimmed.startswith(digits):
+            trimmed = trimmed[len(digits):]
+        return trimmed.lstrip(' -/.,')
+
     def _draw_split_digits(
         self,
         pdf,
@@ -293,7 +313,8 @@ class UnifiedTaxPDFGenerator:
             **cells,
             '102': header.get('102', ''),
             '103': header.get('103', ''),
-            '104': header.get('104', ''),
+            '104': header.get('104_code') or header.get('104', ''),
+            '104_name': self._tax_office_name(header),
             '105': header.get('105') or header.get('115', ''),
             '201': cells.get('201') or period.get('start', ''),
             '202': cells.get('202') or period.get('end', ''),
@@ -348,7 +369,7 @@ class UnifiedTaxPDFGenerator:
             y = height - top
             if key == '103':
                 field_kind = 'organization'
-            elif key == '104':
+            elif key in {'104', '104_name'}:
                 field_kind = 'tax_office'
             elif key == '105':
                 field_kind = 'contact_phone'
